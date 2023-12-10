@@ -1,0 +1,28 @@
+nop 0
+mov
+goto
+ptov
+jifn
+spsh
+spop
+fncr
+fnrt
+get
+put
+quit
+add 65
+sub
+div
+mod
+mul
+eql
+less
+and
+or
+not
+bxor
+band
+bor
+bnot
+bshl
+bshr
