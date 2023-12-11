@@ -1,10 +1,6 @@
-#include <crtdbg.h>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <ratio>
-#include <string_view>
-#include <typeindex>
 #include <vector>
 #include <string>
 #include "src/tables.h"
@@ -60,6 +56,10 @@ int main(int argc, char** argv){
             mode = 'b';
             continue;
         }
+        if (!strcmp(argv[i], "--both")){
+            mode = 'o';
+            continue;
+        }
         if (!strcmp(argv[i], "-o")){
             nextIsOFile = true;
             continue;
@@ -97,15 +97,21 @@ int main(int argc, char** argv){
 
     
 
+    int res = 0;
 
-    if (mode == 'b')
-        return VMachineMode();
-    if (mode == 'a'){
+    if (mode != 'b'){
         if (outDir.empty()){
             outDir = fs::current_path().generic_string();
         }
-        return AsmParserMode();
+        res =  AsmParserMode();
     }
+    if (res != 0){
+        return res;
+    }
+
+    if (mode != 'a')
+        res = VMachineMode();
+    return res;
 }
 
 // TODO: hex, oct, bin
@@ -192,7 +198,7 @@ int VMachineMode(){
 
         }
     }
-    return 0;
+    return 1;
 }
 
 int AsmParserMode(){
@@ -245,7 +251,7 @@ int AsmParserMode(){
             auto it = asmTable.find(token);
             if(it == asmTable.end()){
                 std::cout << "ERROR: Wrong asm command \"" << token << "\" on line " << line << '.';
-                return 0;
+                return 1;
             }
             commandInfo = &(it->second);
             bcFile.flush();
@@ -289,7 +295,7 @@ int AsmParserMode(){
         
         if (stepsToNext != 0){
             std::cout << "ERROR: the last command do not have enough arguments";
-            return 0;
+            return 1;
         }
         std::cout << " > Done " << asmFileName << "\n";
 

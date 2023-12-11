@@ -1,10 +1,10 @@
-  VMachine.exe [--bytecode|--asm] <files...> [-o <dir>]
+  VMachine.exe [--bytecode|--asm|--both] <files...> [-o <dir>]
 
   --help
   input file type:
     --bytecode (default)
       (.shbyte)
-      Virtual machine starts a program.
+      Virtual machine runs a program.
       Only one file.
     --asm
       (.shasm)
@@ -15,5 +15,7 @@
         <dir> - current directory by default.
       // --dupl
       //   Create new files instead of replacing existing files in case of duplicates.
-      //   False by default.
+      //   False by default
+    --both
+      Firstly runs --asm mode, than runs --bytecode with first input file.
 
