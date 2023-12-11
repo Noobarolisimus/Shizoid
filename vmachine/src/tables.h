@@ -1,9 +1,11 @@
 // lua generated
 #include <map>
 #include <string>
+#include <vector>
 
-extern std::map<std::string, uint8_t> asmTable;
+extern std::map<std::string, std::vector<uint8_t>> asmTable;
 extern std::map<std::string, uint8_t> regTable;
+extern char const HELPTEXT[];
 
 // Сколько занимает регион с регистрами в Байтах
 constexpr int REGMEMAMOUNT = 64;
@@ -22,5 +24,3 @@ constexpr int REGMEMAMOUNT = 64;
 #define REG_cb (*(int32_t*)(memory + 61))
 #define REG_cc (*(int32_t*)(memory + 62))
 #define REG_cd (*(int32_t*)(memory + 63))
-
-char const HELPTEXT[] = "  VMachine.exe [--bytecode|--asm] <files...> [-o <dir>]\n\n  --help\n  input file type:\n    --bytecode (default)\n      (.shbyte)\n      Only one program.\n      VMachine begin working and starts do a program.\n    --asm\n      (.shasm)\n      Any amount of programs.\n      -o <dir>\n        Directory where .shbyte output files will be placed\n        <dir> - current directory by default\n\n";

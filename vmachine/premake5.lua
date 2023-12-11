@@ -1,3 +1,16 @@
+-- Всякие функции
+    function split (inputstr, sep)
+        if sep == nil then
+                sep = "%s"
+        end
+        local t={}
+        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+                table.insert(t, str)
+        end
+        return t
+    end
+-- ~Всякие функции
+
 workspace "Shizoid"
     configurations { "Debug", "Release" }
     
@@ -28,15 +41,36 @@ project "VMachine"
         error("There is no \"regtTable.txt\" file.");
     end
 
-    -- tablescpp
-    tablescpp:write("//lua generated\n#include \"tables.h\"\n\nstd::map<std::string, uint8_t> asmTable{\n");
+    -- tables.cpp
+    tablescpp:write("// lua generated\n#include \"tables.h\"\n");
+    
+    
+    -- help
+    local helpf = io.open("data/help.txt", "r");
+    tablescpp:write("\nchar const HELPTEXT[] = \"")
+    for i in helpf:lines() do
+        tablescpp:write(i);
+        tablescpp:write("\\n");
+    end
+    tablescpp:write("\";\n") 
+    -- ~help
+
+    tablescpp:write("\n// { name, { bytecode, len A, len B, len ...} }\nstd::map<std::string, std::vector<uint8_t>> asmTable{\n");
+
     for line in asmt:lines() do
-        local space = string.find(line, " ");
-        if space ~= nil then
-            bytecode = tonumber(string.sub(line, space))
-            line = string.sub(line, 1, space - 1);
+        local start = 1;
+        local words = split(line, " ");
+        if tonumber(words[1], 10) ~= nil then
+            bytecode = tonumber(words[1]);
+            start = 2;
         end
-        tablescpp:write(string.format("    {\"%s\", %i},\n", line, bytecode));
+        tablescpp:write(string.format("    {\"%s\", { %i", words[start], bytecode));
+        for id, bytelen in pairs(words) do
+            if id > start then
+                tablescpp:write(", "..bytelen);
+            end
+        end
+        tablescpp:write(" } },\n");
         bytecode = bytecode + 1;
     end
 
@@ -57,8 +91,9 @@ project "VMachine"
     tablescpp:write("};");
     --tablescpp:write(string.format("};\n\nconst int REGMEMAMOUNT = %i;", memBegin));
 
-    -- tablesh
-    tablesh:write("// lua generated\n#include <map>\n#include <string>\n\nextern std::map<std::string, uint8_t> asmTable;\nextern std::map<std::string, uint8_t> regTable;\n\n// Сколько занимает регион с регистрами в Байтах\nconstexpr int REGMEMAMOUNT = "..tostring(memBegin)..";\n");
+
+    -- tables.h
+    tablesh:write("// lua generated\n#include <map>\n#include <string>\n#include <vector>\n\nextern std::map<std::string, std::vector<uint8_t>> asmTable;\nextern std::map<std::string, uint8_t> regTable;\nextern char const HELPTEXT[];\n\n// Сколько занимает регион с регистрами в Байтах\nconstexpr int REGMEMAMOUNT = "..tostring(memBegin)..";\n");
     regt:seek("set", 0);
     memBegin = 0
     for line in regt:lines() do
@@ -67,17 +102,7 @@ project "VMachine"
         line = string.sub(line, 1, space - 1);
         tablesh:write(string.format("#define REG_%s (*(int32_t*)(memory + %i))\n", line, memBegin));
         memBegin = memBegin + memLen;
-    end
-    
-    -- help
-    local helpf = io.open("data/help.txt", "r");
-    tablesh:write("\nchar const HELPTEXT[] = \"")
-    for i in helpf:lines() do
-        tablesh:write(i);
-        tablesh:write("\\n");
-    end
-    tablesh:write("\";\n") 
-    -- ~help
+    end    
 
     asmt:close();
     tablescpp:close();

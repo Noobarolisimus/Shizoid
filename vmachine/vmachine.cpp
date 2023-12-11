@@ -2,6 +2,9 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <ratio>
+#include <string_view>
+#include <typeindex>
 #include <vector>
 #include <string>
 #include "src/tables.h"
@@ -23,6 +26,7 @@ inline int32_t& memoryi(int bytes){
 }
 
 int mode = 'b';
+bool duplicates = false;
 bool nextIsOFile = false;
 std::vector<std::string> inpFiles;
 std::string outDir;
@@ -82,6 +86,11 @@ int main(int argc, char** argv){
         }
     }
 
+    if (inpFiles.empty()){
+        std::cout << "There is no input files";
+        return 0;
+    }
+
     std::fill(memory, memory + REGMEMAMOUNT, 0);
     REG_inn = REGMEMAMOUNT;
     REG_sptr = REGMEMAMOUNT;
@@ -95,9 +104,13 @@ int main(int argc, char** argv){
         if (outDir.empty()){
             outDir = fs::current_path().generic_string();
         }
-        std::cout << outDir;
         return AsmParserMode();
     }
+}
+
+// TODO: hex, oct, bin
+int ToNum(const std::string& num){
+    return std::stoi(num);
 }
 
 int VMachineMode(){
@@ -183,6 +196,104 @@ int VMachineMode(){
 }
 
 int AsmParserMode(){
+    for(std::string& asmFileName : inpFiles){
+        std::cout << " > Processing " << asmFileName << "\n";
+        std::ifstream asmFile(asmFileName);
+        asmFile.unsetf(std::ios::skipws);
+        {
+            auto dot = asmFileName.find_last_of('.');
+            if (dot != -1){
+                asmFileName.resize(dot);
+            }
+            asmFileName += ".shbyte";
+        }
+        // bytecode file
+        std::ofstream bcFile(asmFileName, std::ios::binary);
+        std::string token;
+        std::vector<uint8_t>* commandInfo;
+        // шагов до следующей команды
+        int stepsToNext = 0;
+        int line = 1;
+
+    cycle1:
+
+        while(!asmFile.eof()){
+            char let;
+            // Кажется, оверкилл; посмотреть ф-ции по-проще
+            asmFile >> let;
+            switch (let){
+                case '\n':
+                    line++;
+                case ' ':
+                    goto fullToken;
+                case ';':
+                    while(!asmFile.eof()){
+                        asmFile >> let;
+                        if(let == '\n'){
+                            line++;
+                            goto fullToken;
+                        }
+                    }
+                    break;
+                default:
+                    token.push_back(let);
+            }
+        }
+    fullToken:
+        // Если новая команда (не значение)
+        if (stepsToNext == 0){
+            auto it = asmTable.find(token);
+            if(it == asmTable.end()){
+                std::cout << "ERROR: Wrong asm command \"" << token << "\" on line " << line << '.';
+                return 0;
+            }
+            commandInfo = &(it->second);
+            bcFile.flush();
+            bcFile << (char)((*commandInfo)[0]);
+            bcFile.flush();
+            stepsToNext = commandInfo->size() - 1;
+            token.clear();
+        }
+        else{
+            int bytes = (*commandInfo)[commandInfo->size() - stepsToNext];
+            if (bytes > 4){
+                std::cout << "ERROR: values > 4 Bytes is not suported yet. Line " << line << '.';
+            }
+            union{
+                int num;
+                char parts[4];
+            };
+            auto it = regTable.find(token);
+            if (it != regTable.end()){
+                num = it->second;
+                goto regskip1;
+            }
+            num = ToNum(token);
+            if (bytes == 1){
+                if (num >= 256){
+                    std::cout << "Warning: byte overflow on line " << line << ". Value \"" << token << "\" as number \"" << parts[0] << "\".\n";
+                }
+            }
+        regskip1:
+            for (int i = 0; i < bytes; i++){
+                bcFile << parts[i];
+                bcFile.flush();
+            }
+
+            stepsToNext--;
+            token.clear();
+        }
+        if (!asmFile.eof()){
+            goto cycle1;
+        }
+        
+        if (stepsToNext != 0){
+            std::cout << "ERROR: the last command do not have enough arguments";
+            return 0;
+        }
+        std::cout << " > Done " << asmFileName << "\n";
+
+    }
     return 0;
 }
 

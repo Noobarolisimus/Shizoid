@@ -3,4 +3,5 @@ Makefile
 *.make
 bin
 *.vcxproj*
+*.sln
 .vs

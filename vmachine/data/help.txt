@@ -4,12 +4,16 @@
   input file type:
     --bytecode (default)
       (.shbyte)
-      Only one program.
-      VMachine begin working and starts do a program.
+      Virtual machine starts a program.
+      Only one file.
     --asm
       (.shasm)
-      Any amount of programs.
+      Creates bytecode files from shizoid assembler.
+      Any amount of files.
       -o <dir>
-        Directory where .shbyte output files will be placed
-        <dir> - current directory by default
+        Directory where .shbyte output files will be placed.
+        <dir> - current directory by default.
+      // --dupl
+      //   Create new files instead of replacing existing files in case of duplicates.
+      //   False by default.
 

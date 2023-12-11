@@ -1,29 +1,29 @@
-nop 0
-mov
-goto
-ptov
-jifn
-spsh
-spop
-fncr
+0 nop
+mov 4 4
+jmp 4
+ptov 4 4
+jifn 4
+spsh 4
+spop 4
+fncr 4
 fnrt
-get
-putc
-putp
-quit
-add 65
-sub
-div
-mod
-mul
-eql
-less
-and
-or
-not
-bxor
-band
-bor
-bnot
-bshl
-bshr
+get 4
+putc 1
+putp 4
+quit 4
+65 add 4 4
+sub 4 4
+div 4 4
+mod 4 4
+mul 4 4
+eql 4 4
+less 4 4
+and 4 4
+or 4 4
+not 4
+bxor 4 4
+band 4 4
+bor 4 4
+bnot 4
+bshl 4 4
+bshr 4 4

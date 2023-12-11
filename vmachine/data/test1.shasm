@@ -1,0 +1,3 @@
+putc 11
+jmp 64
+quit 0
