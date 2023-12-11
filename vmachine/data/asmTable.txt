@@ -8,7 +8,8 @@ spop
 fncr
 fnrt
 get
-put
+putc
+putp
 quit
 add 65
 sub

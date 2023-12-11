@@ -1,0 +1,15 @@
+  VMachine.exe [--bytecode|--asm] <files...> [-o <dir>]
+
+  --help
+  input file type:
+    --bytecode (default)
+      (.shbyte)
+      Only one program.
+      VMachine begin working and starts do a program.
+    --asm
+      (.shasm)
+      Any amount of programs.
+      -o <dir>
+        Directory where .shbyte output files will be placed
+        <dir> - current directory by default
+

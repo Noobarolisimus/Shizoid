@@ -2,3 +2,5 @@ obj
 Makefile
 *.make
 bin
+*.vcxproj*
+.vs

@@ -65,13 +65,23 @@ project "VMachine"
         local space = string.find(line, " ");
         local memLen = tonumber(string.sub(line, space));
         line = string.sub(line, 1, space - 1);
-        tablesh:write(string.format("#define REG_%s memory[%i]\n", line, memBegin));
+        tablesh:write(string.format("#define REG_%s (*(int32_t*)(memory + %i))\n", line, memBegin));
         memBegin = memBegin + memLen;
     end
     
+    -- help
+    local helpf = io.open("data/help.txt", "r");
+    tablesh:write("\nchar const HELPTEXT[] = \"")
+    for i in helpf:lines() do
+        tablesh:write(i);
+        tablesh:write("\\n");
+    end
+    tablesh:write("\";\n") 
+    -- ~help
 
     asmt:close();
     tablescpp:close();
+    tablesh:close()
     regt:close();
 -- Конец парсинга таблиц
 
