@@ -112,6 +112,9 @@ project "VMachine"
     regt:close();
 -- Конец парсинга таблиц
 
+    -- Ибо нехуй
+    defines { "_ITERATOR_DEBUG_LEVEL" }
+
     filter "configurations:Debug"
         defines { "_DEBUG" }
         buildoptions { "-v" }
