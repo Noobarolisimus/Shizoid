@@ -11,8 +11,10 @@
     end
 -- ~Всякие функции
 
+
 workspace "Shizoid"
     configurations { "Debug", "Release" }
+    platforms { "Win64", "Linux"}
     
 project "VMachine"
     kind "ConsoleApp"
@@ -64,7 +66,7 @@ project "VMachine"
             bytecode = tonumber(words[1]);
             start = 2;
         end
-        tablescpp:write(string.format("    {\"%s\", { %i", words[start], bytecode));
+        tablescpp:write(string.format("    { \"%s\", { %i", words[start], bytecode));
         for id, bytelen in pairs(words) do
             if id > start then
                 tablescpp:write(", "..bytelen);
@@ -85,7 +87,7 @@ project "VMachine"
         end
         memLen = tonumber(string.sub(line, space));
         line = string.sub(line, 1, space - 1);
-        tablescpp:write(string.format("    {\"%s\", %i},\n", line, memBegin));
+        tablescpp:write(string.format("    { \"%s\", %i},\n", line, memBegin));
         memBegin = memBegin + memLen;
     end
     tablescpp:write("};");
@@ -110,11 +112,18 @@ project "VMachine"
     regt:close();
 -- Конец парсинга таблиц
 
-
     filter "configurations:Debug"
-        defines { "DEBUG" }
+        defines { "_DEBUG" }
+        buildoptions { "-v" }
         symbols "On"
 
     filter "configurations:Release"
-        defines { "NDEBUG" }
+        defines { "_RELEASE" }
         optimize "On"
+    
+    filter "platforms:Win64"
+        defines { "_WIN64", "_WIN" }
+        
+    filter "platforms:Linux"
+        defines { "_LINUX" }
+    

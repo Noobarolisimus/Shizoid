@@ -116,6 +116,9 @@ int main(int argc, char** argv){
 
 // TODO: hex, oct, bin
 int ToNum(const std::string& num){
+    if (num.size() == 1 && num[0] < '0' && num[0] > '9'){
+        return (int)num[0];
+    }
     return std::stoi(num);
 }
 
@@ -304,5 +307,8 @@ int AsmParserMode(){
 }
 
 void Init(){
-    
+    // DLog
+    #if _DEBUG && DLOGISFILE
+        __dLogFile.file.open(DLOGFILEPATH, std::ios::out | std::ios::trunc);
+    #endif
 }

@@ -5,3 +5,5 @@ bin
 *.vcxproj*
 *.sln
 .vs
+compile_command*
+.cache
