@@ -113,15 +113,15 @@ project "VMachine"
 -- Конец парсинга таблиц
 
     -- Ибо нехуй
-    defines { "_ITERATOR_DEBUG_LEVEL" }
+    defines { "_ITERATOR_DEBUG_LEVEL=0" }
 
     filter "configurations:Debug"
-        defines { "_DEBUG" }
-        buildoptions { "-v" }
+        defines { "DEBUG", "COLORTERMINAL" }
+        --buildoptions { "-v" }
         symbols "On"
 
     filter "configurations:Release"
-        defines { "_RELEASE" }
+        defines { "NDEBUG" }
         optimize "On"
     
     filter "platforms:Win64"

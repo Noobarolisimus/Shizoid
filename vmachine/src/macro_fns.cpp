@@ -58,6 +58,7 @@
     const TERMCOLOR TERMCOLOR::BG_LWHITE   = TERMCOLOR::BG_WHITE;
     #pragma endregion
 #endif
+
 #if COLORTERMINAL
     #if _WIN
         StaticInit<HANDLE, WinColorTermHandleInit> __hConsole;

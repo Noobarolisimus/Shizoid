@@ -102,7 +102,7 @@ public:
     TERMCOLOR operator"" __TC(const char* str, size_t size);
 #endif
 #ifdef COLORTERMINAL
-    #ifdef _WIN // может поменяться в зависимости от компилятора; это для clang
+    #ifdef _WIN
         #include <Windows.h>
         struct WinColorTermHandleInit{
             HANDLE operator() ();

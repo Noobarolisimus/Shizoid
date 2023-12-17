@@ -3,7 +3,10 @@
 #include <filesystem>
 #include <vector>
 #include <string>
+#include <cstring>
 #include "src/tables.h"
+//#include "src/macros.h"
+//#include "src/macro_fns.h"
 
 namespace fs = std::filesystem;
 
@@ -21,7 +24,11 @@ inline int32_t& memoryi(int bytes){
     return *(int32_t*)(memory + bytes);
 }
 
-int mode = 'b';
+enum class Modes {
+    ASM = 1,
+    BYTECODE,
+    BOTH,
+} mode;
 bool duplicates = false;
 bool nextIsOFile = false;
 std::vector<std::string> inpFiles;
@@ -49,15 +56,15 @@ int main(int argc, char** argv){
 
     for(int i = 1; i < argc; i++){
         if (!strcmp(argv[i], "--asm")){
-            mode = 'a';
+            mode = Modes::ASM;
             continue;
         }
         if (!strcmp(argv[i], "--bytecode")){
-            mode = 'b';
+            mode = Modes::BYTECODE;
             continue;
         }
         if (!strcmp(argv[i], "--both")){
-            mode = 'o';
+            mode = Modes::BOTH;
             continue;
         }
         if (!strcmp(argv[i], "-o")){
@@ -99,27 +106,60 @@ int main(int argc, char** argv){
 
     int res = 0;
 
-    if (mode != 'b'){
+    if (mode != Modes::BYTECODE){
         if (outDir.empty()){
             outDir = fs::current_path().generic_string();
         }
-        res =  AsmParserMode();
+        res = AsmParserMode();
     }
     if (res != 0){
         return res;
     }
 
-    if (mode != 'a')
+    if (mode != Modes::ASM)
         res = VMachineMode();
     return res;
 }
 
-// TODO: hex, oct, bin
-int ToNum(const std::string& num){
-    if (num.size() == 1 && num[0] < '0' && num[0] > '9'){
-        return (int)num[0];
+// char, hex, oct, bin
+int32_t ParseValue(const std::string& val, bool& error){
+    error = false;
+    if (val.size() > 2){
+        if (val[0] == '"' && val[val.size() - 1] == '"' or (val[0] == '\'' && val[val.size() - 1] == '\'')){
+            if(val.size() > 6){
+                error = true;
+                return 0;
+            }
+            union{
+                int32_t out;
+                char parts[4];
+            };
+            for(int i = 1; i < val.size() - 1; i++){
+                parts[i - 1] = val[i];
+            }
+            for(int i = val.size() - 2; i < 4; i++){
+                parts[i] = 0;
+            }
+            return out;
+        }
+        
+        int base;
+        switch (val[1]){
+            case 'b':
+                base = 2;
+                break;
+            case 'o':
+                base = 8;
+                break;
+            case 'x':
+                base = 16;
+                break;
+            default:
+                return std::stoi(val);
+        }
+        return std::stoi(val.c_str() + 2, 0, base);
     }
-    return std::stoi(num);
+    return std::stoi(val);
 }
 
 int VMachineMode(){
@@ -208,6 +248,7 @@ int AsmParserMode(){
     for(std::string& asmFileName : inpFiles){
         std::cout << " > Processing " << asmFileName << "\n";
         std::ifstream asmFile(asmFileName);
+        // Теперь читаем и пробелы
         asmFile.unsetf(std::ios::skipws);
         {
             auto dot = asmFileName.find_last_of('.');
@@ -228,7 +269,6 @@ int AsmParserMode(){
 
         while(!asmFile.eof()){
             char let;
-            // Кажется, оверкилл; посмотреть ф-ции по-проще
             asmFile >> let;
             switch (let){
                 case '\n':
@@ -263,10 +303,10 @@ int AsmParserMode(){
             stepsToNext = commandInfo->size() - 1;
             token.clear();
         }
-        else{
+        else {
             int bytes = (*commandInfo)[commandInfo->size() - stepsToNext];
             if (bytes > 4){
-                std::cout << "ERROR: values > 4 Bytes is not suported yet. Line " << line << '.';
+                std::cout << "ERROR: values >4 Bytes is not suported yet. Line " << line << '.';
             }
             union{
                 int num;
@@ -277,10 +317,16 @@ int AsmParserMode(){
                 num = it->second;
                 goto regskip1;
             }
-            num = ToNum(token);
+            {
+                bool error;
+                num = ParseValue(token, error);
+                if(error){
+                    std::cout << "ERROR: wrong value \"" << token << "\" on line " << line << '.';
+                }
+            }
             if (bytes == 1){
                 if (num >= 256){
-                    std::cout << "Warning: byte overflow on line " << line << ". Value \"" << token << "\" as number \"" << parts[0] << "\".\n";
+                    std::cout << "Warning: byte overflow on line " << line << ". Value \"" << token << "\" as number \"" << (int)parts[0] << "\".\n";
                 }
             }
         regskip1:
