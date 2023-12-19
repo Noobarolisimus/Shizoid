@@ -1,3 +1,4 @@
+// Остановился: Если в .shasm на конце " ", то всё ок, иначе последний аргумент не правильно читается
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -238,7 +239,70 @@ int VMachineMode(){
                 break;
             case 12:
                 return inn_next(1);
-
+            case 65:
+                inn_next(1) = inn_next(1) + inn_next(5);
+                REG_inn += 9;
+                break;
+            case 66:
+                inn_next(1) = inn_next(1) - inn_next(5);
+                REG_inn += 9;
+                break;
+            case 67:
+                inn_next(1) = inn_next(1) / inn_next(5);
+                REG_inn += 9;
+                break;
+            case 68:
+                inn_next(1) = inn_next(1) % inn_next(5);
+                REG_inn += 9;
+                break;
+            case 69:
+                inn_next(1) = inn_next(1) * inn_next(5);
+                REG_inn += 9;
+                break;
+            case 70:
+                inn_next(1) = inn_next(1) == inn_next(5);
+                REG_inn += 9;
+                break;
+            case 71:
+                inn_next(1) = inn_next(1) < inn_next(5);
+                REG_inn += 9;
+                break;
+            case 72:
+                inn_next(1) = inn_next(1) && inn_next(5);
+                REG_inn += 9;
+                break;
+            case 73:
+                inn_next(1) = inn_next(1) || inn_next(5);
+                REG_inn += 9;
+                break;
+            case 74:
+                inn_next(1) = !inn_next(1);
+                REG_inn += 5;
+                break;
+            case 75:
+                inn_next(1) = inn_next(1) ^ inn_next(5);
+                REG_inn += 9;
+                break;
+            case 76:
+                inn_next(1) = inn_next(1) & inn_next(5);
+                REG_inn += 9;
+                break;
+            case 77:
+                inn_next(1) = inn_next(1) | inn_next(5);
+                REG_inn += 9;
+                break;
+            case 78:
+                inn_next(1) = ~inn_next(1);
+                REG_inn += 5;
+                break;
+            case 79:
+                inn_next(1) = inn_next(1) << inn_next(5);
+                REG_inn += 9;
+                break;
+            case 80:
+                inn_next(1) = inn_next(1) >> inn_next(5);
+                REG_inn += 9;
+                break;
         }
     }
     return 1;
@@ -259,8 +323,11 @@ int AsmParserMode(){
         }
         // bytecode file
         std::ofstream bcFile(asmFileName, std::ios::binary);
+
         std::string token;
         std::vector<uint8_t>* commandInfo;
+        // jmpList[jmpName][placesToInserty]
+        std::map<std::string, std::vector<int32_t>> jmpList;
         // шагов до следующей команды
         int stepsToNext = 0;
         int line = 1;
@@ -273,6 +340,7 @@ int AsmParserMode(){
             switch (let){
                 case '\n':
                     line++;
+                    bcFile.flush();
                 case ' ':
                     goto fullToken;
                 case ';':
@@ -289,6 +357,9 @@ int AsmParserMode(){
             }
         }
     fullToken:
+        if (token.empty()){
+            goto tokenProcEnd;
+        }
         // Если новая команда (не значение)
         if (stepsToNext == 0){
             auto it = asmTable.find(token);
@@ -332,12 +403,13 @@ int AsmParserMode(){
         regskip1:
             for (int i = 0; i < bytes; i++){
                 bcFile << parts[i];
-                bcFile.flush();
             }
 
             stepsToNext--;
             token.clear();
         }
+
+    tokenProcEnd:
         if (!asmFile.eof()){
             goto cycle1;
         }
@@ -346,6 +418,7 @@ int AsmParserMode(){
             std::cout << "ERROR: the last command do not have enough arguments";
             return 1;
         }
+        bcFile.close();
         std::cout << " > Done " << asmFileName << "\n";
 
     }
