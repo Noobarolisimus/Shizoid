@@ -351,7 +351,7 @@ int AsmParserMode(){
                             goto fullToken;
                         }
                     }
-                    break;
+                    goto fullToken;
                 default:
                     token.push_back(let);
             }
