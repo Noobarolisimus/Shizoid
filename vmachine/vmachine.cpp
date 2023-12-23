@@ -1,4 +1,5 @@
 // Остановился: Если в .shasm на конце " ", то всё ок, иначе последний аргумент не правильно читается
+#include <ios>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -6,8 +7,8 @@
 #include <string>
 #include <cstring>
 #include "src/tables.h"
-//#include "src/macros.h"
-//#include "src/macro_fns.h"
+#include "src/macros.h"
+#include "src/macro_fns.h"
 
 namespace fs = std::filesystem;
 
@@ -34,6 +35,9 @@ bool duplicates = false;
 bool nextIsOFile = false;
 std::vector<std::string> inpFiles;
 std::string outDir;
+DONLY(
+    bool debugMode = false;
+)
 
 int VMachineMode();
 int AsmParserMode();
@@ -43,7 +47,7 @@ void Init();
 int main(int argc, char** argv){
     Init();
     if (argc == 1){
-        std::cout << "Try --help\n";
+        LOG("Try --help");
         return 0;
     }
     // if (argc > 2){
@@ -51,7 +55,7 @@ int main(int argc, char** argv){
     //     return 0;
     // }
     if (!strcmp("--help", argv[1])){
-        std::cout << HELPTEXT;
+        LOG(HELPTEXT);
         return 0;
     }
 
@@ -72,22 +76,28 @@ int main(int argc, char** argv){
             nextIsOFile = true;
             continue;
         }
+        #if DEBUG
+            if (!strcmp(argv[i], "--debug")){
+                debugMode = true;
+                continue;
+            }
+        #endif
 
         if (!fs::exists(argv[i])){
-            std::cout << "There is no \"" << argv[i] << "\" file or path";
+            LOG("There is no \"" << argv[i] << "\" file or path");
             return 0;
         }
         if (nextIsOFile){
             nextIsOFile = false;
             if(!fs::is_directory(argv[i])){
-                std::cout << '"' << argv[i] << "\" is not a directory (-o)";
+                LOG('"' << argv[i] << "\" is not a directory (-o)");
                 return 0;
             }
             outDir = argv[i];
         }
         else{
             if (!fs::is_regular_file(argv[i])){
-                std::cout << '"' << argv[i] << "\" is not a file";
+                LOG('"' << argv[i] << "\" is not a file");
                 return 0;
             }
             inpFiles.push_back(std::string(argv[i]));
@@ -95,7 +105,7 @@ int main(int argc, char** argv){
     }
 
     if (inpFiles.empty()){
-        std::cout << "There is no input files";
+        LOG("There is no input files");
         return 0;
     }
 
@@ -230,11 +240,11 @@ int VMachineMode(){
                 REG_inn += 5;
                 break;
             case 10:
-                std::cout << memory[REG_inn + 1];
+                LOG_STR(memory[REG_inn + 1]);
                 REG_inn += 2;
                 break;
             case 11:
-                std::cout << memory[memoryi(REG_inn + 1)];
+                LOG_STR(memory[memoryi(REG_inn + 1)]);
                 REG_inn += 5;
                 break;
             case 12:
@@ -310,7 +320,7 @@ int VMachineMode(){
 
 int AsmParserMode(){
     for(std::string& asmFileName : inpFiles){
-        std::cout << " > Processing " << asmFileName << "\n";
+        LOG(" > Processing " << asmFileName);
         std::ifstream asmFile(asmFileName);
         // Теперь читаем и пробелы
         asmFile.unsetf(std::ios::skipws);
@@ -322,8 +332,7 @@ int AsmParserMode(){
             asmFileName += ".shbyte";
         }
         // bytecode file
-        std::ofstream bcFile(asmFileName, std::ios::binary);
-
+        std::ofstream bcFile(asmFileName, std::ios::binary);        
         std::string token;
         std::vector<uint8_t>* commandInfo;
         // jmpList[jmpName][placesToInserty]
@@ -334,9 +343,12 @@ int AsmParserMode(){
 
     cycle1:
 
-        while(!asmFile.eof()){
+        while(true){
             char let;
             asmFile >> let;
+            if(asmFile.eof()){
+                break;
+            }
             switch (let){
                 case '\n':
                     line++;
@@ -344,8 +356,11 @@ int AsmParserMode(){
                 case ' ':
                     goto fullToken;
                 case ';':
-                    while(!asmFile.eof()){
+                    while(true){
                         asmFile >> let;
+                        if(asmFile.eof()){
+                            break;
+                        }
                         if(let == '\n'){
                             line++;
                             goto fullToken;
@@ -364,7 +379,7 @@ int AsmParserMode(){
         if (stepsToNext == 0){
             auto it = asmTable.find(token);
             if(it == asmTable.end()){
-                std::cout << "ERROR: Wrong asm command \"" << token << "\" on line " << line << '.';
+                ERROR("wrong asm command \"" << token << "\" on line " << line << '.');
                 return 1;
             }
             commandInfo = &(it->second);
@@ -373,11 +388,16 @@ int AsmParserMode(){
             bcFile.flush();
             stepsToNext = commandInfo->size() - 1;
             token.clear();
+            #if DEBUG
+                if (debugMode){
+                    bcFile << ':';
+                }
+            #endif
         }
         else {
             int bytes = (*commandInfo)[commandInfo->size() - stepsToNext];
             if (bytes > 4){
-                std::cout << "ERROR: values >4 Bytes is not suported yet. Line " << line << '.';
+                ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
             }
             union{
                 int num;
@@ -392,12 +412,12 @@ int AsmParserMode(){
                 bool error;
                 num = ParseValue(token, error);
                 if(error){
-                    std::cout << "ERROR: wrong value \"" << token << "\" on line " << line << '.';
+                    ERROR("wrong value \"" << token << "\" on line " << line << '.');
                 }
             }
             if (bytes == 1){
                 if (num >= 256){
-                    std::cout << "Warning: byte overflow on line " << line << ". Value \"" << token << "\" as number \"" << (int)parts[0] << "\".\n";
+                    WARNING("byte overflow on line " << line << ". Value \"" << token << "\" as a number \"" << (int)parts[0] << "\".");
                 }
             }
         regskip1:
@@ -407,6 +427,15 @@ int AsmParserMode(){
 
             stepsToNext--;
             token.clear();
+            #if DEBUG
+                if (debugMode){
+                    if (stepsToNext == 0){
+                        bcFile << '_';
+                    }else{
+                        bcFile << '.';
+                    }
+                }
+            #endif
         }
 
     tokenProcEnd:
@@ -415,11 +444,11 @@ int AsmParserMode(){
         }
         
         if (stepsToNext != 0){
-            std::cout << "ERROR: the last command do not have enough arguments";
+            ERROR("the last command do not have enough arguments");
             return 1;
         }
         bcFile.close();
-        std::cout << " > Done " << asmFileName << "\n";
+        LOG(" > Done " << asmFileName);
 
     }
     return 0;

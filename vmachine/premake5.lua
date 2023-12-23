@@ -121,7 +121,7 @@ project "VMachine"
         symbols "On"
 
     filter "configurations:Release"
-        defines { "NDEBUG" }
+        defines { "RELEASE" }
         optimize "On"
     
     filter "platforms:Win64"

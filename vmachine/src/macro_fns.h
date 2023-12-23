@@ -20,7 +20,7 @@ public:
 };
 
 // COLOR TERMINAL
-#if _WIN
+#if _WIN && !DEBUG
     enum TERMCOLOR{
         BG_BLACK = 0, FG_BLACK = 0,
         BG_BLUE = 0x10, FG_BLUE = 0x1,
@@ -56,6 +56,7 @@ public:
         friend std::ostream& operator<< (std::ostream& stream, TERMCOLOR& rhs);
 
         #pragma region consts
+
         static const TERMCOLOR FG_DEFAULT;
         static const TERMCOLOR BG_DEFAULT;
         static const TERMCOLOR    DEFAULT;
@@ -96,13 +97,16 @@ public:
         static const TERMCOLOR BG_LMAGENTA;
         static const TERMCOLOR BG_LCYAN   ;
         static const TERMCOLOR BG_LWHITE  ;
+
+        static const TERMCOLOR LOG_DEFAULT;
+
         #pragma endregion
     };
 
     TERMCOLOR operator"" __TC(const char* str, size_t size);
 #endif
-#ifdef COLORTERMINAL
-    #ifdef _WIN
+#if COLORTERMINAL
+    #if _WIN && RELEASE
         #include <Windows.h>
         struct WinColorTermHandleInit{
             HANDLE operator() ();
@@ -121,7 +125,7 @@ public:
 #endif
 
 // DLog
-#if _DEBUG
+#if DEBUG
     #if DLOGISFILE
         class __DLogFile{
         public:
@@ -161,17 +165,33 @@ public:
 
 // LOG
 #define LOG(info){\
-    SETCOLOR(TERMCOLOR::FG_LMAGENTA)\
+    SETCOLOR(TERMCOLOR::LOG_DEFAULT)\
     std::cout << info << std::endl;\
-    SETCOLOR(TERMCOLOR::FG_WHITE)}
+    SETCOLOR(TERMCOLOR::FG_DEFAULT)}
 
 #define LOG_STR(info){\
-    SETCOLOR(TERMCOLOR::FG_LMAGENTA)\
+    SETCOLOR(TERMCOLOR::LOG_DEFAULT)\
     std::cout << info;\
-    SETCOLOR(TERMCOLOR::FG_WHITE)}
+    SETCOLOR(TERMCOLOR::FG_DEFAULT)}
+
+// ERROR
+#define ERROR(msg) {\
+    SETCOLOR(TERMCOLOR::FG_RED)\
+    std::cout << "ERROR: ";\
+    SETCOLOR(TERMCOLOR::LOG_DEFAULT)\
+    std::cout << msg << std::endl;\
+    SETCOLOR(TERMCOLOR::FG_DEFAULT)}
+    
+// WARNING
+#define WARNING(msg) {\
+    SETCOLOR(TERMCOLOR::FG_LYELLOW)\
+    std::cout << "Warning: ";\
+    SETCOLOR(TERMCOLOR::LOG_DEFAULT)\
+    std::cout << msg << std::endl;\
+    SETCOLOR(TERMCOLOR::FG_DEFAULT)}
 
 // DONLY
-#if _DEBUG
+#if DEBUG
     #define DONLY(statment) statment
 #else
     #define DONLY(statement)

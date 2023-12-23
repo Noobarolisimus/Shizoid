@@ -1,6 +1,6 @@
 #include "macro_fns.h"
 
-#if !_WIN
+#if !_WIN || DEBUG
     TERMCOLOR::TERMCOLOR(const char* str, size_t size) : color(std::string(str, size)) {}
     TERMCOLOR::TERMCOLOR(std::string str) : color(str) {}
 
@@ -56,11 +56,12 @@
     const TERMCOLOR TERMCOLOR::BG_LMAGENTA = TERMCOLOR::BG_MAGENTA;
     const TERMCOLOR TERMCOLOR::BG_LCYAN    = TERMCOLOR::BG_CYAN;
     const TERMCOLOR TERMCOLOR::BG_LWHITE   = TERMCOLOR::BG_WHITE;
+    const TERMCOLOR TERMCOLOR::LOG_DEFAULT   = TERMCOLOR::FG_LMAGENTA;
     #pragma endregion
 #endif
 
 #if COLORTERMINAL
-    #if _WIN
+    #if _WIN && !DEBUG
         StaticInit<HANDLE, WinColorTermHandleInit> __hConsole;
         HANDLE WinColorTermHandleInit::operator() (){
             HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -75,7 +76,7 @@
 #endif
 
 // DLog
-#if _DEBUG
+#if DEBUG
     #if DLOGISFILE
         __DLogFile::~__DLogFile(){
             file.close();

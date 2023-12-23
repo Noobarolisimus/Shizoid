@@ -1,3 +1,3 @@
 putc 0xb
 jmp 0x40
-quit 1
+quit 0
