@@ -1,3 +1,33 @@
-putc 0xb
-jmp 0x40
-quit 0
+
+
+; ins 4 8
+; jifn 
+; 
+; quit 0
+; 
+; 
+; mov ic 0
+; 
+; :loop:
+; mov ib 4
+; sub ib ic
+; add ib :data:
+; 
+; mov ia 48
+; add ia ic
+; putp ia
+; 
+; mov ia 1
+; add ic ia
+; 
+; mov ib 4
+; less ib ic
+; mov ia 4
+; eql ia ic
+; or ia ib
+; jifn ia :loop:
+; quit 0
+; 
+; :data:
+
+ins 4 (0xff00 0xee)

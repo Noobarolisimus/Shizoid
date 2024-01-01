@@ -180,7 +180,8 @@ public:
     std::cout << "ERROR: ";\
     SETCOLOR(TERMCOLOR::LOG_DEFAULT)\
     std::cout << msg << std::endl;\
-    SETCOLOR(TERMCOLOR::FG_DEFAULT)}
+    SETCOLOR(TERMCOLOR::FG_DEFAULT)\
+    exit(1);}
     
 // WARNING
 #define WARNING(msg) {\

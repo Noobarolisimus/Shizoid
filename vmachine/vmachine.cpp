@@ -1,8 +1,9 @@
-// Остановился: Если в .shasm на конце " ", то всё ок, иначе последний аргумент не правильно читается
-#include <ios>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <stdint.h>
+#include <string_view>
+#include <type_traits>
 #include <vector>
 #include <string>
 #include <cstring>
@@ -132,26 +133,65 @@ int main(int argc, char** argv){
     return res;
 }
 
+// TODO переписать std::stoi на самописную с блекджеком и std::string_view
 // char, hex, oct, bin
-int32_t ParseValue(const std::string& val, bool& error){
-    error = false;
+int32_t ParseValue(const std::string_view val, bool& error){
+    union{
+        int32_t num;
+        char parts[4];
+    };
+
     if (val.size() > 2){
+
+        if ( val[0] == '(' && val[val.size() - 1] == ')' ){
+            int cur = 0;
+            int leftBound = 0;
+            num = 0;
+            while (leftBound != val.size() - 1){
+                int rightBound = val.find(' ', leftBound + 1);
+                if (rightBound == -1){
+                    rightBound = val.size() - 1;
+                }
+                std::string_view subVal(val.begin() + leftBound + 1, val.begin() + rightBound);
+                leftBound = rightBound;
+                union{
+                    int32_t sNum;
+                    char sParts[4];
+                };
+                sNum = ParseValue(subVal, error);
+                if (error){
+                    return 0;
+                }
+                int bytes = 4;
+                for (int i = 3; i > 0; i--){
+                    if (sParts[i] != 0){
+                        break;
+                    }
+                    bytes--;
+                }
+                for(int i = 0; i < bytes; i++){
+                    if (cur > 3){
+                        error = true;
+                        return 0;
+                    }
+                    parts[cur++] = sParts[i];
+                }
+            }
+            return num;
+        }
+
         if (val[0] == '"' && val[val.size() - 1] == '"' or (val[0] == '\'' && val[val.size() - 1] == '\'')){
             if(val.size() > 6){
                 error = true;
                 return 0;
             }
-            union{
-                int32_t out;
-                char parts[4];
-            };
             for(int i = 1; i < val.size() - 1; i++){
                 parts[i - 1] = val[i];
             }
             for(int i = val.size() - 2; i < 4; i++){
                 parts[i] = 0;
             }
-            return out;
+            return num;
         }
         
         int base;
@@ -166,12 +206,18 @@ int32_t ParseValue(const std::string& val, bool& error){
                 base = 16;
                 break;
             default:
-                return std::stoi(val);
+                num = std::stoi((std::string)val);
+                return num;
         }
-        return std::stoi(val.c_str() + 2, 0, base);
+        num = std::stoi((std::string)val.substr(2), 0, base);
+        return num;
     }
-    return std::stoi(val);
+
+    num = std::stoi((std::string)val);
+    return num;
 }
+
+
 
 int VMachineMode(){
 
@@ -181,7 +227,7 @@ int VMachineMode(){
         asmFile.read((char*)memory + REG_sptr, 1);
         REG_sptr++;
     }
-    
+
     // Исполняем программу
     while (1){
         switch (memory[REG_inn]) {
@@ -201,11 +247,11 @@ int VMachineMode(){
                 REG_inn += 9;
                 break;
             case 4:
-                if (inn_next(1)){
-                    REG_inn += 5;
+                if (memoryi(inn_next(1))){
+                    REG_inn += 9;
                 }
                 else {
-                    REG_inn = inn_next(1);
+                    REG_inn = inn_next(5);
                 }
                 break;
             case 5:
@@ -236,87 +282,89 @@ int VMachineMode(){
             }
                 break;
             case 9:
+                return inn_next(1);
+            case 10:
                 std::cin >> memory[memoryi(REG_inn + 1)];
                 REG_inn += 5;
                 break;
-            case 10:
+            case 11:
                 LOG_STR(memory[REG_inn + 1]);
                 REG_inn += 2;
                 break;
-            case 11:
+            case 12:
                 LOG_STR(memory[memoryi(REG_inn + 1)]);
                 REG_inn += 5;
                 break;
-            case 12:
-                return inn_next(1);
             case 65:
-                inn_next(1) = inn_next(1) + inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) + memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 66:
-                inn_next(1) = inn_next(1) - inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) - memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 67:
-                inn_next(1) = inn_next(1) / inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) / memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 68:
-                inn_next(1) = inn_next(1) % inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) % memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 69:
-                inn_next(1) = inn_next(1) * inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) * memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 70:
-                inn_next(1) = inn_next(1) == inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) == memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 71:
-                inn_next(1) = inn_next(1) < inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) < memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 72:
-                inn_next(1) = inn_next(1) && inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) && memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 73:
-                inn_next(1) = inn_next(1) || inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) || memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 74:
-                inn_next(1) = !inn_next(1);
+                memoryi(inn_next(1)) = !memoryi(inn_next(1));
                 REG_inn += 5;
                 break;
             case 75:
-                inn_next(1) = inn_next(1) ^ inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) ^ memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 76:
-                inn_next(1) = inn_next(1) & inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) & memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 77:
-                inn_next(1) = inn_next(1) | inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) | memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 78:
-                inn_next(1) = ~inn_next(1);
+                memoryi(inn_next(1)) = ~memoryi(inn_next(1));
                 REG_inn += 5;
                 break;
             case 79:
-                inn_next(1) = inn_next(1) << inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) << memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
             case 80:
-                inn_next(1) = inn_next(1) >> inn_next(5);
+                memoryi(inn_next(1)) = memoryi(inn_next(1)) >> memoryi(inn_next(5));
                 REG_inn += 9;
                 break;
         }
     }
     return 1;
 }
+
+
 
 int AsmParserMode(){
     for(std::string& asmFileName : inpFiles){
@@ -335,14 +383,21 @@ int AsmParserMode(){
         std::ofstream bcFile(asmFileName, std::ios::binary);        
         std::string token;
         std::vector<uint8_t>* commandInfo;
-        // jmpList[jmpName][placesToInserty]
-        std::map<std::string, std::vector<int32_t>> jmpList;
+        // jmpList[jmpMark][placesToInserty]
+        // jmpList[jmpMark][0] = -1 по умолчанию - jmpMarkPtr для jmpMark
+        std::map<std::string, std::vector<int32_t>, std::less<>> jmpList;
+        std::string_view jmpMark;
         // шагов до следующей команды
         int stepsToNext = 0;
         int line = 1;
+        int byte = 0;
+        bool isQuotes = false;
+        bool isBrackets = false;
+        int32_t insA = 0;
 
     cycle1:
 
+        // Собираем токен
         while(true){
             char let;
             asmFile >> let;
@@ -350,11 +405,44 @@ int AsmParserMode(){
                 break;
             }
             switch (let){
+                case ' ':
+                    if(isQuotes || isBrackets){
+                        token.push_back(let);
+                        break;
+                    }
+                    goto fullToken;
                 case '\n':
+                newLineProc:
+                    if(isQuotes){
+                        ERROR("quotes" << " are not closed on line " << line << '.');
+                    }
+                    if(isBrackets){
+                        ERROR("brackets" << " are not closed on line " << line << '.');
+                    }
                     line++;
                     bcFile.flush();
-                case ' ':
                     goto fullToken;
+                case '\'':
+                case '\"':
+                    token.push_back(let);
+                    isQuotes = !isQuotes;
+                    if (!isQuotes){
+                        goto fullToken;
+                    }
+                    break;
+                case '(':
+                    token.push_back(let);
+                    if (isBrackets){
+                        ERROR("double brackets on line " << line << '.')
+                    }
+                    isBrackets = true;
+                    break;
+                case ')':
+                    if (isBrackets){
+                        token.push_back(let);
+                        goto fullToken;
+                    }
+                    ERROR("no brackets to close by ')' on line " << line << '.')
                 case ';':
                     while(true){
                         asmFile >> let;
@@ -362,8 +450,7 @@ int AsmParserMode(){
                             break;
                         }
                         if(let == '\n'){
-                            line++;
-                            goto fullToken;
+                            goto newLineProc;
                         }
                     }
                     goto fullToken;
@@ -375,17 +462,49 @@ int AsmParserMode(){
         if (token.empty()){
             goto tokenProcEnd;
         }
-        // Если новая команда (не значение)
+
+        // jmp
+        if(token[0] == ':' && token[token.size() - 1] == ':'){
+            jmpMark = {token.begin() + 1, token.end() - 1};
+            token.clear();
+        }
+        // ~jmp
+
         if (stepsToNext == 0){
+            // Если token = новая команда (не значение)
+            
+            // jmp
+            if (!jmpMark.empty()){
+                auto it = jmpList.find(jmpMark);
+                if (it == jmpList.end()){
+                    jmpList.insert({ (std::string)jmpMark, {REGMEMAMOUNT + byte} });
+                }
+                else {
+                    if (it->second[0] != -1){
+                        ERROR("line " << line << ": jmp mark \"" << jmpMark << "\" already defined.");
+                    }
+                    it->second[0] = REGMEMAMOUNT + byte;
+                }
+                jmpMark = {};
+                goto tokenProcEnd;
+            }
+            // ~jmp
+            
+            // ins
+            if (token == "ins"){
+                insA = -1;
+                stepsToNext = 2;
+                token.clear();
+                goto tokenProcEnd;
+            }
+            // ~ins
+
             auto it = asmTable.find(token);
-            if(it == asmTable.end()){
+            if (it == asmTable.end()){
                 ERROR("wrong asm command \"" << token << "\" on line " << line << '.');
-                return 1;
             }
             commandInfo = &(it->second);
-            bcFile.flush();
             bcFile << (char)((*commandInfo)[0]);
-            bcFile.flush();
             stepsToNext = commandInfo->size() - 1;
             token.clear();
             #if DEBUG
@@ -393,12 +512,77 @@ int AsmParserMode(){
                     bcFile << ':';
                 }
             #endif
+            byte++;
         }
         else {
+            // Если token = значение (не команда)
+
+            // ins
+            if (insA == -1){
+                // Первый аргумент ins.
+                // Считываем размер следующего аргумета в байтах.
+                bool error;
+                insA = ParseValue(token, error);
+                if (error){
+                    ERROR("wrong value format on line " << line << '.');
+                }
+                if (insA <= 0){
+                    ERROR("first argument <= 0 on line " << line << '.');
+                }
+                if (insA > 4){
+                    ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
+                }
+                stepsToNext--;
+                token.clear();
+                goto tokenProcEnd;
+            }
+            if (insA){
+                // Второй аргумент ins.
+                bool error;
+                union{
+                    int32_t val;
+                    uint8_t parts[4];
+                };
+                val = ParseValue(token, error);
+                if (error){
+                    ERROR("wrong value format on line " << line << '.');
+                }
+                for(int i = 0; i < insA; i++){
+                    bcFile << parts[i];
+                }
+                byte += insA;
+                insA = 0;
+                stepsToNext--;
+                token.clear();
+                goto tokenProcEnd;
+            }
+            // ~ins
+            
+
             int bytes = (*commandInfo)[commandInfo->size() - stepsToNext];
             if (bytes > 4){
                 ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
             }
+            // jmp
+            if (!jmpMark.empty()){
+                if (bytes != 4){
+                    ERROR("not enough bytes in the argument to store a jmp mark \"" << jmpMark << "\" on line " << line << '.');
+                }
+                auto it = jmpList.find(jmpMark);
+                if (it == jmpList.end()){
+                    jmpList.insert({ (std::string)jmpMark, {-1, byte} });
+                }
+                else{
+                    it->second.push_back(byte);
+                }
+                bcFile.seekp(4, std::ios::cur);
+                byte += 4;
+                stepsToNext--;
+                jmpMark = {};
+                goto tokenProcEnd;
+            }
+            // ~jmp
+
             union{
                 int num;
                 char parts[4];
@@ -406,7 +590,7 @@ int AsmParserMode(){
             auto it = regTable.find(token);
             if (it != regTable.end()){
                 num = it->second;
-                goto regskip1;
+                goto regSkip1;
             }
             {
                 bool error;
@@ -420,7 +604,7 @@ int AsmParserMode(){
                     WARNING("byte overflow on line " << line << ". Value \"" << token << "\" as a number \"" << (int)parts[0] << "\".");
                 }
             }
-        regskip1:
+        regSkip1:
             for (int i = 0; i < bytes; i++){
                 bcFile << parts[i];
             }
@@ -436,6 +620,7 @@ int AsmParserMode(){
                     }
                 }
             #endif
+            byte += bytes;
         }
 
     tokenProcEnd:
@@ -445,8 +630,22 @@ int AsmParserMode(){
         
         if (stepsToNext != 0){
             ERROR("the last command do not have enough arguments");
-            return 1;
         }
+
+        // jpm
+        for (auto& i : jmpList){
+            union{
+                int32_t val;
+                uint8_t parts[4];
+            };
+            val = i.second[0];
+            for (int j = 1; j < i.second.size(); j++){
+                bcFile.seekp(i.second[j], std::ios::beg);
+                bcFile << parts[0] << parts[1] << parts[2] << parts[3];
+            }
+        }
+        // ~jmp
+
         bcFile.close();
         LOG(" > Done " << asmFileName);
 

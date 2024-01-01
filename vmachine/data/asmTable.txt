@@ -2,15 +2,15 @@
 mov 4 4
 jmp 4
 ptov 4 4
-jifn 4
+jifn 4 4
 spsh 4
 spop 4
 fncr 4
 fnrt
+quit 4
 get 4
 putc 1
 putp 4
-quit 4
 65 add 4 4
 sub 4 4
 div 4 4
