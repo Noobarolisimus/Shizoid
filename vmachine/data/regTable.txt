@@ -1,6 +1,5 @@
 null 8
 inn 4
-rinf 4
 sptr 4
 fndt 4
 fa 8
@@ -9,6 +8,7 @@ fc 8
 ia 4
 ib 4
 ic 4
+id 4
 ca 1
 cb 1
 cc 1

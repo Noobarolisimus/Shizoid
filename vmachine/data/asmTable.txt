@@ -1,16 +1,18 @@
 0 nop
 mov 4 4
 jmp 4
-ptov 4 4
+copy 4 4
 jifn 4 4
-spsh 4
-spop 4
+push 4
+pop 4
 fncr 4
 fnrt
 quit 4
 get 4
 putc 1
 putp 4
+ptov 4 4
+pcp 4 4
 65 add 4 4
 sub 4 4
 div 4 4
@@ -18,6 +20,7 @@ mod 4 4
 mul 4 4
 eql 4 4
 less 4 4
+grtr 4 4
 and 4 4
 or 4 4
 not 4

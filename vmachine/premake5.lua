@@ -95,7 +95,7 @@ project "VMachine"
 
 
     -- tables.h
-    tablesh:write("// lua generated\n#include <map>\n#include <string>\n#include <vector>\n\nextern std::map<std::string, std::vector<uint8_t>> asmTable;\nextern std::map<std::string, uint8_t> regTable;\nextern char const HELPTEXT[];\n\n// Сколько занимает регион с регистрами в Байтах\nconstexpr int REGMEMAMOUNT = "..tostring(memBegin)..";\n");
+    tablesh:write("// lua generated\n#pragma once\n#include <map>\n#include <string>\n#include <vector>\n\nextern std::map<std::string, std::vector<uint8_t>> asmTable;\nextern std::map<std::string, uint8_t> regTable;\nextern char const HELPTEXT[];\n\n// Сколько занимает регион с регистрами в Байтах\nconstexpr int REGMEMAMOUNT = "..tostring(memBegin)..";\n");
     regt:seek("set", 0);
     memBegin = 0
     for line in regt:lines() do

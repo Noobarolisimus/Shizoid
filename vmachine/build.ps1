@@ -1,2 +1,2 @@
-.\prgcfg.ps1
+.\prjcfg.ps1
 make
