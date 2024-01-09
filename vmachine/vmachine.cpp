@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <queue>
 #include <stdint.h>
 #include <string_view>
 #include <type_traits>
@@ -134,6 +135,20 @@ int main(int argc, char** argv){
     return res;
 }
 
+
+// TODO rename
+uint8_t UnshieldVal(uint8_t character){
+    switch (character){
+        case 'n': return '\n';
+        case '\'': return '\'';
+        case '\"': return '\"';
+        case '0': return '\0';
+        case '\\': return '\\';
+        case 't': return '\t';
+    }
+    return 15; // ☼
+}
+
 // TODO переписать std::stoi на самописную с блекджеком и std::string_view.
 // char, hex, oct, bin.
 int32_t ParseValue(const std::string_view val, bool& error){
@@ -186,15 +201,26 @@ int32_t ParseValue(const std::string_view val, bool& error){
             return num;
         }
 
-        if (val[0] == '"' && val[val.size() - 1] == '"' or (val[0] == '\'' && val[val.size() - 1] == '\'')){
-            if(val.size() > 6){
-                error = true;
-                return 0;
+        if (val[0] == '"' && val[val.size() - 1] == '"'){
+            int size = 0;
+            for (int i = 1; i < val.size() - 1; i++, size++){
+                if (size > 4){
+                    error = 0;
+                    return 0;
+                }
+                if (val[i] == '\\'){
+                    if (i > val.size() - 3){
+                        error = 1;
+                        return 0;
+                    }
+                    parts[size] = UnshieldVal(val[i + 1]);
+                    i++;
+                    continue;
+                }
+                parts[size] = val[i];
             }
-            for(int i = 1; i < val.size() - 1; i++){
-                parts[i - 1] = val[i];
-            }
-            for(int i = val.size() - 2; i < 4; i++){
+
+            for (int i = size; i < 4; i++){
                 parts[i] = 0;
             }
             return num;
@@ -258,7 +284,7 @@ int VMachineMode(){
                 REG_inn += 9;
                 break;
             case 2:
-                REG_inn = inn_next(1);
+                REG_inn += inn_next(1);
                 break;
             case 3:
                 memoryi(inn_next(1)) = memoryi(inn_next(5));
@@ -444,9 +470,19 @@ int AsmParserMode(){
                     line++;
                     bcFile.flush();
                     goto fullToken;
-                case '\'':
                 case '\"':
                     token.push_back(let);
+                    {
+                        int isOdd = 0;
+                        for (int i = token.size() - 2; i >= 0; i--){
+                            if (token[i] != '\\')
+                                break;
+                            isOdd ^= 1;
+                        }
+                        if (isOdd){
+                            break;
+                        }
+                    }
                     isQuotes = !isQuotes;
                     if (!isQuotes && !isBrackets){
                         goto fullToken;
@@ -511,9 +547,9 @@ int AsmParserMode(){
             
             // jmp
             if (!jmpMark.empty()){
-                bool error = CreateJmpMark(jmpMark, REGMEMAMOUNT + byte);
+                bool error = CreateJmpMark(jmpMark, byte);
                 if (error){
-                    ERROR("line " << line << ": jmp mark \"" << jmpMark << "\" already defined.");
+                    ERROR("line " << line << ": jmp mark \"" << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << "\" already defined.");
                 }
                 jmpMark = {};
                 goto tokenProcEnd;
@@ -531,7 +567,7 @@ int AsmParserMode(){
 
             auto it = asmTable.find(token);
             if (it == asmTable.end()){
-                ERROR("wrong asm command \"" << token << "\" on line " << line << '.');
+                ERROR("wrong asm command \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
             }
             commandInfo = &(it->second);
             bcFile << (char)((*commandInfo)[0]);
@@ -552,7 +588,7 @@ int AsmParserMode(){
                 // Первый аргумент ins.
                 // Считываем размер следующего аргумета в байтах.
                 if (!jmpMark.empty()){
-                    ERROR("line " << line << ". Jmp mark cannot be a size of a value.");
+                    ERROR("line " << line << ". Jmp mark cannot be a size of the value.");
                 }
                 bool error;
                 insA = ParseValue(token, error);
@@ -560,7 +596,7 @@ int AsmParserMode(){
                     ERROR("wrong value format on line " << line << '.');
                 }
                 if (insA <= 0){
-                    ERROR("first argument <= 0 on line " << line << '.');
+                    ERROR("first argument is <= 0 on line " << line << '.');
                 }
                 if (insA > 4){
                     ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
@@ -591,12 +627,12 @@ int AsmParserMode(){
                     goto tokenProcEnd;
                 }
                 else {
-                    ERROR("not enough bytes in the argument to store a jmp mark :" << jmpMark << ": on line " << line << '.');
+                    ERROR("not enough bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
                 }
                 // ~jmp
 
                 if (error){
-                    ERROR("wrong value \"" << token << "\" on line " << line << '.');
+                    ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
                 }
                 for (int i = 0; i < insA; i++){
                     bcFile << parts[i];
@@ -617,7 +653,7 @@ int AsmParserMode(){
             // jmp
             if (!jmpMark.empty()){
                 if (bytes != 4){
-                    ERROR("not enough bytes in the argument to store a jmp mark :" << jmpMark << ": on line " << line << '.');
+                    ERROR("not enough bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
                 }
                 InsertJmpMark(jmpMark, byte);
                 bcFile.seekp(4, std::ios::cur);
@@ -641,7 +677,7 @@ int AsmParserMode(){
                 bool error;
                 num = ParseValue(token, error);
                 if(error){
-                    ERROR("wrong value \"" << token << "\" on line " << line << '.');
+                    ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
                 }
             }
             if (bytes == 1){
@@ -679,15 +715,16 @@ int AsmParserMode(){
 
         // jpm
         for (auto& [jmpName, placesToInsert] : jmpList){
-            union{
-                int32_t val;
-                uint8_t parts[4];
-            };
-            val = placesToInsert[0];
-            if (val == -1){
+            int pivot = placesToInsert[0];
+            if (pivot == -1){
                 ERROR(TERMCOLOR::FG_LBLUE << ':' << jmpName << ":" << TERMCOLOR::LOG_DEFAULT << " is not defined.")
             }
             for (int j = 1; j < placesToInsert.size(); j++){
+                union{
+                    int32_t val;
+                    uint8_t parts[4];
+                };
+                val = pivot - (placesToInsert[j] - 1); 
                 bcFile.seekp(placesToInsert[j], std::ios::beg);
                 bcFile << parts[0] << parts[1] << parts[2] << parts[3];
             }
@@ -709,16 +746,16 @@ void Init(){
 }
 
 // return 1 если jmpMark уже определена.
-bool CreateJmpMark(const std::string_view& jmpMark, int bytePlaceInBytecode){
+bool CreateJmpMark(const std::string_view& jmpMark, int bytePlaceInFile){
     auto it = jmpList.find(jmpMark);
     if (it == jmpList.end()){
-        jmpList.insert({ (std::string)jmpMark, {bytePlaceInBytecode} });
+        jmpList.insert({ (std::string)jmpMark, {bytePlaceInFile} });
     }
     else {
         if (it->second[0] != -1){
             return 1;
         }
-        it->second[0] = bytePlaceInBytecode;
+        it->second[0] = bytePlaceInFile;
     }
     return 0;
 }

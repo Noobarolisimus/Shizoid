@@ -2,12 +2,13 @@ jmp :main:
 
 
 :data1:
-ins 4 'abc'
+ins 4 "\n"
 
 
-; Выводит строку до '\0'.
+
+; Выводит строку до "\0".
 ; arg1 указатель на начало строки.
-:@print:
+:print@:
 copy ic fndt
 mov ib 4
 sub ic ib
@@ -27,7 +28,7 @@ fnrt
 
 ; Выводит десятичное число.
 ; arg1 число 4 Байта.
-:@printn:
+:printn@:
 copy ic fndt
 mov ib 4
 sub ic ib
@@ -36,7 +37,7 @@ mov ia 0
 copy ib ic
 less ib ia
 jifn ib :printn@if1:
-putc '-'
+putc "-"
 mov ia -1
 mul ic ia
 :printn@if1:
@@ -62,7 +63,7 @@ jifn ia :printn@if2:
 mov ia 0
 push ia
 :printn@if2:
-mov ic '0'
+mov ic "0"
 :printn@lpb2:
 pop ia
 mov ib 1
@@ -77,9 +78,14 @@ fnrt
 
 
 :main:
-mov ia 
+mov ia 123412
 push ia
-fncr :@printn:
+fncr :printn@:
+pop null
+
+mov ia :data1:
+push ia
+fncr :print@:
 pop null
 
 
