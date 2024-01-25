@@ -1,3 +1,4 @@
+// Остановился на: относительные jmp
 #include <iostream>
 #include <fstream>
 #include <filesystem>
