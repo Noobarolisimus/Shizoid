@@ -34,6 +34,7 @@ enum class Modes {
     BYTECODE,
     BOTH,
 } mode;
+
 bool duplicates = false;
 bool nextIsOFile = false;
 std::vector<std::string> inpFiles;
@@ -137,7 +138,7 @@ int main(int argc, char** argv){
 }
 
 
-// TODO rename
+// TODO rename.
 uint8_t UnshieldVal(uint8_t character){
     switch (character){
         case 'n': return '\n';
@@ -285,7 +286,7 @@ int VMachineMode(){
                 REG_inn += 9;
                 break;
             case 2:
-                REG_inn += inn_next(1);
+                REG_inn = inn_next(1);
                 break;
             case 3:
                 memoryi(inn_next(1)) = memoryi(inn_next(5));
@@ -548,7 +549,7 @@ int AsmParserMode(){
             
             // jmp
             if (!jmpMark.empty()){
-                bool error = CreateJmpMark(jmpMark, byte);
+                bool error = CreateJmpMark(jmpMark, REGMEMAMOUNT + byte);
                 if (error){
                     ERROR("line " << line << ": jmp mark \"" << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << "\" already defined.");
                 }
@@ -716,16 +717,15 @@ int AsmParserMode(){
 
         // jpm
         for (auto& [jmpName, placesToInsert] : jmpList){
-            int pivot = placesToInsert[0];
-            if (pivot == -1){
+            union{
+                int32_t origin;
+                uint8_t parts[4];
+            };
+            origin = placesToInsert[0];
+            if (origin == -1){
                 ERROR(TERMCOLOR::FG_LBLUE << ':' << jmpName << ":" << TERMCOLOR::LOG_DEFAULT << " is not defined.")
             }
             for (int j = 1; j < placesToInsert.size(); j++){
-                union{
-                    int32_t val;
-                    uint8_t parts[4];
-                };
-                val = pivot - (placesToInsert[j] - 1); 
                 bcFile.seekp(placesToInsert[j], std::ios::beg);
                 bcFile << parts[0] << parts[1] << parts[2] << parts[3];
             }
@@ -747,16 +747,16 @@ void Init(){
 }
 
 // return 1 если jmpMark уже определена.
-bool CreateJmpMark(const std::string_view& jmpMark, int bytePlaceInFile){
+bool CreateJmpMark(const std::string_view& jmpMark, int bytePlaceInBytecode){
     auto it = jmpList.find(jmpMark);
     if (it == jmpList.end()){
-        jmpList.insert({ (std::string)jmpMark, {bytePlaceInFile} });
+        jmpList.insert({ (std::string)jmpMark, {bytePlaceInBytecode} });
     }
     else {
         if (it->second[0] != -1){
             return 1;
         }
-        it->second[0] = bytePlaceInFile;
+        it->second[0] = bytePlaceInBytecode;
     }
     return 0;
 }
@@ -769,4 +769,4 @@ void InsertJmpMark(const std::string_view& jmpMark, int bytePlaceInFile){
     else{
         it->second.push_back(bytePlaceInFile);
     }
-}
+}       

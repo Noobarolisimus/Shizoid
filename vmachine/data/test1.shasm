@@ -2,7 +2,8 @@ jmp :main:
 
 
 :data1:
-ins 4 "\n"
+ins 4 "\nabc"
+ins 1 "\0"
 
 
 
