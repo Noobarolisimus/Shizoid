@@ -9,6 +9,16 @@
         end
         return t
     end
+
+    function removeComment(line)
+        local lineEnd = line:find(";");
+        if lineEnd == nil then
+            lineEnd = line:len();
+        else
+            lineEnd = lineEnd - 1;
+        end
+        return line:sub(1, lineEnd);
+    end
 -- ~Всякие функции
 
 
@@ -40,7 +50,7 @@ project "VMachine"
         error("There is no \"asmTable.txt\" file.");
     end
     if regt == nil then
-        error("There is no \"regtTable.txt\" file.");
+        error("There is no \"regTable.txt\" file.");
     end
 
     -- tables.cpp
@@ -60,6 +70,11 @@ project "VMachine"
     tablescpp:write("\n// { name, { bytecode, len A, len B, len ...} }\nstd::map<std::string, std::vector<uint8_t>> asmTable{\n");
 
     for line in asmt:lines() do
+        line = removeComment(line);
+        if line == "" then
+            goto tablescpp_continue1;
+        end
+
         local start = 1;
         local words = split(line, " ");
         if tonumber(words[1], 10) ~= nil then
@@ -74,12 +89,17 @@ project "VMachine"
         end
         tablescpp:write(" } },\n");
         bytecode = bytecode + 1;
+        ::tablescpp_continue1::
     end
 
     tablescpp:write("};\n\nstd::map<std::string, uint8_t> regTable{\n");
 
     local memBegin = 0;
     for line in regt:lines() do
+        line = removeComment(line);
+        if line == "" then
+            goto tablescpp_continue2;
+        end
         local memLen;
         local space = string.find(line, " ");
         if space == nil then
@@ -89,6 +109,7 @@ project "VMachine"
         line = string.sub(line, 1, space - 1);
         tablescpp:write(string.format("    { \"%s\", %i},\n", line, memBegin));
         memBegin = memBegin + memLen;
+        ::tablescpp_continue2::
     end
     tablescpp:write("};");
     --tablescpp:write(string.format("};\n\nconst int REGMEMAMOUNT = %i;", memBegin));
@@ -99,11 +120,16 @@ project "VMachine"
     regt:seek("set", 0);
     memBegin = 0
     for line in regt:lines() do
+        line = removeComment(line);
+        if line == "" then
+            goto tablesh_continue1;
+        end
         local space = string.find(line, " ");
         local memLen = tonumber(string.sub(line, space));
         line = string.sub(line, 1, space - 1);
-        tablesh:write(string.format("#define REG_%s (*(int32_t*)(memory + %i))\n", line, memBegin));
+        tablesh:write(string.format("#define REG_%s (*(int%i_t*)(memory + %i))\n", line, memLen * 8, memBegin));
         memBegin = memBegin + memLen;
+        ::tablesh_continue1::
     end    
 
     asmt:close();
