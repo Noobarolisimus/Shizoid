@@ -1,4 +1,6 @@
-jmp :main:
+:begin_temp:
+jmpr :main:
+ins 4 0
 
 
 :data1:
@@ -11,18 +13,18 @@ ins 1 "\0"
 ; arg1 указатель на начало строки.
 :print@:
 copy ic fndt
-mov ib 4
+set ib 4
 sub ic ib
 ptov ic ic
 :print@lpb1:
 ptov ia ic
-mov ib 0xff
+set ib 0xff
 band ia ib
 jifn ia :print@lpe1:
 putp ia
-mov ia 1
+set ia 1
 add ic ia
-jmp :print@lpb1:
+jmpr :print@lpb1:
 :print@lpe1:
 fnrt
 
@@ -31,64 +33,63 @@ fnrt
 ; arg1 число 4 Байта.
 :printn@:
 copy ic fndt
-mov ib 4
+set ib 4
 sub ic ib
 ptov ic ic
-mov ia 0
+set ia 0
 copy ib ic
 less ib ia
 jifn ib :printn@if1:
 putc "-"
-mov ia -1
+set ia -1
 mul ic ia
 :printn@if1:
-mov ib -1
+set ib -1
 push ib
-mov ib 10
+set ib 10
 :printn@lpb1:
 jifn ic :printn@lpe1:
 copy ia ic
 mod ia ib
 push ia
 div ic ib
-jmp :printn@lpb1:
+jmpr :printn@lpb1:
 :printn@lpe1:
 copy ia sptr
-mov ib 4
+set ib 4
 sub ia ib
 ptov ia ia
-mov ib 1
+set ib 1
 add ia ib
 not ia
 jifn ia :printn@if2:
-mov ia 0
+set ia 0
 push ia
 :printn@if2:
-mov ic "0"
+set ic "0"
 :printn@lpb2:
 pop ia
-mov ib 1
+set ib 1
 add ib ia
 jifn ib :printn@lpe2:
 add ia ic
 putp ia
-jmp :printn@lpb2:
+jmpr :printn@lpb2:
 :printn@lpe2:
 fnrt
 
 
 
 :main:
-mov ia 123412
+set ia 123412
 push ia
 fncr :printn@:
 pop null
 
-mov ia :data1:
+set ia :data1:
 push ia
 fncr :print@:
 pop null
 
 
 quit 0
-
