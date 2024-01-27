@@ -1,7 +1,4 @@
-:begin_temp:
-jmpr :main:
-ins 4 0
-
+quit 0
 
 :data1:
 ins 4 "\nabc"
@@ -10,7 +7,7 @@ ins 1 "\0"
 
 
 ; Выводит строку до "\0".
-; arg1 указатель на начало строки.
+; [4] arg1 указатель на начало строки.
 :print@:
 copy ic fndt
 set ib 4
@@ -30,7 +27,7 @@ fnrt
 
 
 ; Выводит десятичное число.
-; arg1 число 4 Байта.
+; [4] arg1 число.
 :printn@:
 copy ic fndt
 set ib 4
@@ -80,7 +77,7 @@ fnrt
 
 
 
-:main:
+; :main:
 set ia 123412
 push ia
 fncr :printn@:

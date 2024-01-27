@@ -32,10 +32,11 @@ inline int32_t& memoryi(int bytes){
     return *(int32_t*)(memory + bytes);
 }
 
+// TODO битмаски сделал, а логику, основаную на них, нет (например в main'е)
 enum class Modes {
-    ASM = 1,
-    BYTECODE,
-    BOTH,
+    ASM = 0b1,
+    BYTECODE = 0b10,
+    BOTH = ASM | BYTECODE,
 } mode;
 
 bool duplicates = false;
@@ -69,23 +70,23 @@ int main(int argc, char** argv){
     REG_inn = REGMEMAMOUNT;
     REG_sptr = REGMEMAMOUNT;
 
-    
-
-    int res = 0;
+    // TODO Заменить на error ?
+    int result = 0;
 
     if (mode != Modes::BYTECODE){
         if (outDir.empty()){
             outDir = fs::current_path().generic_string();
         }
-        res = AsmParserMode();
+        result = AsmParserMode();
+        
     }
-    if (res != 0){
-        return res;
+    if (result != 0){
+        return result;
     }
 
     if (mode != Modes::ASM)
-        res = VMachineMode();
-    return res;
+        result = VMachineMode();
+    return result;
 }
 
 
@@ -292,9 +293,17 @@ int ParseArgs(int argc, char** argv){
 
 
 int VMachineMode(){
+    if (mode == Modes::BOTH){
+        auto dot = inpFiles[0].find_last_of('.');
+        if (dot != -1){
+            inpFiles[0].resize(dot);
+        }
+        inpFiles[0] += ".shbyte";
+    }
 
     // Читаем программу.
     std::ifstream asmFile(inpFiles[0]);
+    
     while (!asmFile.eof()){
         asmFile.read((char*)memory + REG_sptr, 1);
         REG_sptr++;
@@ -447,321 +456,365 @@ int VMachineMode(){
 }
 
 
+void ParseAsm(const std::string& asmFileName, std::fstream& outFile, int& byte, std::vector<std::string_view>& alreadyIncluded){
+    LOG(" > Processing" << (byte == 0 ? " " : " (sub) ") << asmFileName);
+    std::ifstream asmFile(asmFileName);
+    // Читаем пробелы.
+    asmFile.unsetf(ios::skipws);
+    std::string token;
+    std::string lastInstruction;
+    std::vector<uint8_t>* commandInfo;
+    std::string_view jmpMark;
+    // шагов до следующей команды.
+    int stepsToNext = 0;
+    int line = 1;
+    bool isQuotes = false;
+    bool isBrackets = false;
+    int32_t insA = 0;
 
-int AsmParserMode(){
-    for(std::string& asmFileName : inpFiles){
-        LOG(" > Processing " << asmFileName);
-        std::ifstream asmFile(asmFileName);
-        // Читаем пробелы.
-        asmFile.unsetf(ios::skipws);
-        {
-            auto dot = asmFileName.find_last_of('.');
-            if (dot != -1){
-                asmFileName.resize(dot);
-            }
-            asmFileName += ".shbyte";
+    
+cycle1:
+
+    // Собираем токен.
+    while(true){
+        char let;
+        asmFile >> let;
+        if(asmFile.eof()){
+            break;
         }
-        // bytecode file.
-        std::fstream bcFile(asmFileName, ios::binary | ios::in | ios::out | ios::trunc);        
-        std::string token;
-        std::string lastInstruction;
-        std::vector<uint8_t>* commandInfo;
-        std::string_view jmpMark;
-        // шагов до следующей команды.
-        int stepsToNext = 0;
-        int line = 1;
-        int byte = 0;
-        bool isQuotes = false;
-        bool isBrackets = false;
-        int32_t insA = 0;
-
-        
-    cycle1:
-
-        // Собираем токен.
-        while(true){
-            char let;
-            asmFile >> let;
-            if(asmFile.eof()){
+        switch (let){
+            case ' ':
+                if(isQuotes || isBrackets){
+                    token.push_back(let);
+                    break;
+                }
+                goto fullToken;
+            case '\n':
+            newLineProc:
+                if(isQuotes){
+                    ERROR("quotes" << " are not closed on line " << line << '.');
+                }
+                if(isBrackets){
+                    ERROR("brackets" << " are not closed on line " << line << '.');
+                }
+                line++;
+                //outFile.flush();
+                goto fullToken;
+            case '\"':
+                token.push_back(let);
+                {
+                    int isOdd = 0;
+                    for (int i = token.size() - 2; i >= 0; i--){
+                        if (token[i] != '\\')
+                            break;
+                        isOdd ^= 1;
+                    }
+                    if (isOdd){
+                        break;
+                    }
+                }
+                isQuotes = !isQuotes;
+                if (!isQuotes && !isBrackets){
+                    goto fullToken;
+                }
                 break;
-            }
-            switch (let){
-                case ' ':
-                    if(isQuotes || isBrackets){
-                        token.push_back(let);
-                        break;
-                    }
-                    goto fullToken;
-                case '\n':
-                newLineProc:
-                    if(isQuotes){
-                        ERROR("quotes" << " are not closed on line " << line << '.');
-                    }
-                    if(isBrackets){
-                        ERROR("brackets" << " are not closed on line " << line << '.');
-                    }
-                    line++;
-                    //bcFile.flush();
-                    goto fullToken;
-                case '\"':
+            case '(':
+                if(isQuotes){
                     token.push_back(let);
-                    {
-                        int isOdd = 0;
-                        for (int i = token.size() - 2; i >= 0; i--){
-                            if (token[i] != '\\')
-                                break;
-                            isOdd ^= 1;
-                        }
-                        if (isOdd){
-                            break;
-                        }
-                    }
-                    isQuotes = !isQuotes;
-                    if (!isQuotes && !isBrackets){
-                        goto fullToken;
-                    }
                     break;
-                case '(':
-                    if(isQuotes){
-                        token.push_back(let);
-                        break;
-                    }
-                    if (isBrackets){
-                        ERROR("double brackets on line " << line << '.')
-                    }
+                }
+                if (isBrackets){
+                    ERROR("double brackets on line " << line << '.')
+                }
+                token.push_back(let);
+                isBrackets = true;
+                break;
+            case ')':
+                if(isQuotes){
                     token.push_back(let);
-                    isBrackets = true;
                     break;
-                case ')':
-                    if(isQuotes){
-                        token.push_back(let);
-                        break;
-                    }
-                    if (isBrackets){
-                        token.push_back(let);
-                        isBrackets = false;
-                        goto fullToken;
-                    }
-                    ERROR("no brackets to close by ')' on line " << line << '.')
-                case ';':
-                    if(isQuotes){
-                        token.push_back(let);
-                        break;
-                    }
-                    while(true){
-                        asmFile >> let;
-                        if(asmFile.eof()){
-                            break;
-                        }
-                        if(let == '\n'){
-                            goto newLineProc;
-                        }
-                    }
-                    goto fullToken;
-                default:
+                }
+                if (isBrackets){
                     token.push_back(let);
-            }
+                    isBrackets = false;
+                    goto fullToken;
+                }
+                ERROR("no brackets to close by ')' on line " << line << '.')
+            case ';':
+                if(isQuotes){
+                    token.push_back(let);
+                    break;
+                }
+                while(true){
+                    asmFile >> let;
+                    if(asmFile.eof()){
+                        break;
+                    }
+                    if(let == '\n'){
+                        goto newLineProc;
+                    }
+                }
+                goto fullToken;
+            default:
+                token.push_back(let);
         }
-    fullToken:
-        if (token.empty()){
+    }
+fullToken:
+    if (token.empty()){
+        goto tokenProcEnd;
+    }
+
+    // #
+    if (token[0] == '#'){
+        const char* str = token.c_str() + 1;
+        // TODO Добавить #include в дизайн-документ
+        if (strcmp(str, "include") == 0){
+            std::string fileName;
+            // TODO Cократить путь.
+            // TODO Сделать поиск по директориям и т.п. (=сделать умным).
+            // TODO (sub) Искать от inp файла
+            char let;
+            while (true){
+                asmFile >> let;
+                if (let == '\n'){
+                    break;
+                }
+                fileName.push_back(let);
+                if (asmFile.eof()){
+                    break;
+                }
+            }
+            if (!fs::exists(fileName)){
+                ERROR("line " << line << ": file \"" << TERMCOLOR::FG_BLUE << fileName << TERMCOLOR::LOG_DEFAULT << "\" does not exist.")
+            }
+            if (!fs::is_regular_file(fileName)){
+                ERROR("line " << line << ": file \"" << TERMCOLOR::FG_BLUE << fileName << TERMCOLOR::LOG_DEFAULT << "\" is not a regular.")
+            }
+            ParseAsm(fileName, outFile, byte, alreadyIncluded);
+            LOG(" > Done (sub) " << fileName);
+        }
+        // TODO добавить #once
+        token.clear();
+        goto tokenProcEnd;
+    }
+    // ~#
+
+    // jmp
+    if(token[0] == ':' && token[token.size() - 1] == ':'){
+        // TODO Кажется, тут UB, т.к. string_view ссылается на строку после отчистки.
+        jmpMark = {token.begin() + 1, token.end() - 1};
+        token.clear();
+    }
+    // ~jmp
+
+    if (stepsToNext == 0){
+        // Если token == новая команда (не значение).
+        
+        // jmp
+        if (!jmpMark.empty()){
+            bool error = CreateJmpMark(jmpMark, byte);
+            if (error){
+                ERROR("line " << line << ": jmp mark \"" << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << "\" already defined.");
+            }
+            jmpMark = {};
             goto tokenProcEnd;
         }
-
-        // jmp
-        if(token[0] == ':' && token[token.size() - 1] == ':'){
-            // TODO Кажется, тут UB, т.к. string_view ссылается на строку после отчистки.
-            jmpMark = {token.begin() + 1, token.end() - 1};
+        // ~jmp
+        
+        // ins
+        if (token == "ins"){
+            insA = -1;
+            stepsToNext = 2;
             token.clear();
+            goto tokenProcEnd;
+        }
+        // ~ins
+
+        auto it = asmTable.find(token);
+        if (it == asmTable.end()){
+            ERROR("wrong asm command \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
+        }
+        lastInstruction = token;
+        commandInfo = &(it->second);
+        outFile << (char)((*commandInfo)[0]);
+        stepsToNext = commandInfo->size() - 1;
+        token.clear();
+        #if DEBUG
+            if (debugMode){
+                outFile << ':';
+            }
+        #endif
+        byte++;
+    }
+    else {
+        // Если token = значение (не команда)
+
+        // ins
+        if (insA == -1){
+            // Первый аргумент ins.
+
+            // Считываем размер следующего аргумета в байтах.
+            if (!jmpMark.empty()){
+                ERROR("line " << line << ". Jmp mark cannot be a size of the value.");
+            }
+            bool error;
+            insA = ParseValue(token, error);
+            if (error){
+                ERROR("wrong value format on line " << line << '.');
+            }
+            if (insA <= 0){
+                ERROR("first argument is <= 0 on line " << line << '.');
+            }
+            if (insA > 4){
+                ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
+            }
+            stepsToNext--;
+            token.clear();
+            goto tokenProcEnd;
+        }
+        if (insA){
+            // Второй аргумент ins.
+
+            bool error;
+            union{
+                int32_t val;
+                uint8_t parts[4];
+            };
+
+            // jmp
+            if (jmpMark.empty()){
+                val = ParseValue(token, error);
+            }
+            else if (insA == 4){
+                InsertJmpMark(jmpMark, byte);
+                //outFile.seekp(4, ios::cur);
+                int32_t toWrite = REGMEMAMOUNT;
+                outFile.write((char*)&toWrite, 4);
+                byte += 4;
+                jmpMark = {};
+                insA = 0;
+                stepsToNext--;
+                goto tokenProcEnd;
+            }
+            else {
+                ERROR("not enough bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
+            }
+            // ~jmp
+
+            if (error){
+                ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
+            }
+            for (int i = 0; i < insA; i++){
+                outFile << parts[i];
+            }
+            byte += insA;
+            insA = 0;
+            stepsToNext--;
+            token.clear();
+            goto tokenProcEnd;
+        }
+        // ~ins
+        
+
+        int argByteLen = (*commandInfo)[commandInfo->size() - stepsToNext];
+        if (argByteLen > 4){
+            // TODO ?
+            ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
+        }
+        // jmp
+        if (!jmpMark.empty()){
+            if (argByteLen != 4){
+                ERROR("not enough bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
+            }
+            InsertJmpMark(jmpMark, byte);
+            int32_t toWrite;
+            if (lastInstruction == "jmpr"){
+                toWrite = -byte + 1;
+            }
+            else {
+                toWrite = REGMEMAMOUNT;
+                //outFile.seekp(4, ios::cur);
+            }
+            outFile.write((char*)&toWrite, 4);
+            byte += 4;
+            stepsToNext--;
+            jmpMark = {};
+            goto tokenProcEnd;
         }
         // ~jmp
 
-        if (stepsToNext == 0){
-            // Если token == новая команда (не значение).
-            
-            // jmp
-            if (!jmpMark.empty()){
-                bool error = CreateJmpMark(jmpMark, byte);
-                if (error){
-                    ERROR("line " << line << ": jmp mark \"" << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << "\" already defined.");
-                }
-                jmpMark = {};
-                goto tokenProcEnd;
-            }
-            // ~jmp
-            
-            // ins
-            if (token == "ins"){
-                insA = -1;
-                stepsToNext = 2;
-                token.clear();
-                goto tokenProcEnd;
-            }
-            // ~ins
-
-            auto it = asmTable.find(token);
-            if (it == asmTable.end()){
-                ERROR("wrong asm command \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
-            }
-            lastInstruction = token;
-            commandInfo = &(it->second);
-            bcFile << (char)((*commandInfo)[0]);
-            stepsToNext = commandInfo->size() - 1;
-            token.clear();
-            #if DEBUG
-                if (debugMode){
-                    bcFile << ':';
-                }
-            #endif
-            byte++;
+        union{
+            int num;
+            char parts[4];
+        };
+        auto it = regTable.find(token);
+        if (it != regTable.end()){
+            num = it->second;
+            goto regSkip1;
         }
-        else {
-            // Если token = значение (не команда)
-
-            // ins
-            if (insA == -1){
-                // Первый аргумент ins.
-
-                // Считываем размер следующего аргумета в байтах.
-                if (!jmpMark.empty()){
-                    ERROR("line " << line << ". Jmp mark cannot be a size of the value.");
-                }
-                bool error;
-                insA = ParseValue(token, error);
-                if (error){
-                    ERROR("wrong value format on line " << line << '.');
-                }
-                if (insA <= 0){
-                    ERROR("first argument is <= 0 on line " << line << '.');
-                }
-                if (insA > 4){
-                    ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
-                }
-                stepsToNext--;
-                token.clear();
-                goto tokenProcEnd;
+        {
+            bool error;
+            num = ParseValue(token, error);
+            if(error){
+                ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
             }
-            if (insA){
-                // Второй аргумент ins.
-
-                bool error;
-                union{
-                    int32_t val;
-                    uint8_t parts[4];
-                };
-
-                // jmp
-                if (jmpMark.empty()){
-                    val = ParseValue(token, error);
-                }
-                else if (insA == 4){
-                    InsertJmpMark(jmpMark, byte);
-                    //bcFile.seekp(4, ios::cur);
-                    int32_t toWrite = REGMEMAMOUNT;
-                    bcFile.write((char*)&toWrite, 4);
-                    byte += 4;
-                    jmpMark = {};
-                    insA = 0;
-                    stepsToNext--;
-                    goto tokenProcEnd;
-                }
-                else {
-                    ERROR("not enough bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
-                }
-                // ~jmp
-
-                if (error){
-                    ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
-                }
-                for (int i = 0; i < insA; i++){
-                    bcFile << parts[i];
-                }
-                byte += insA;
-                insA = 0;
-                stepsToNext--;
-                token.clear();
-                goto tokenProcEnd;
+        }
+        if (argByteLen == 1){
+            if (num >= 256){
+                WARNING("byte overflow on line " << line << ". Value \"" << token << "\" as a number \"" << (int)parts[0] << "\".");
             }
-            // ~ins
-            
-
-            int argByteLen = (*commandInfo)[commandInfo->size() - stepsToNext];
-            if (argByteLen > 4){
-                // TODO ?
-                ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
-            }
-            // jmp
-            if (!jmpMark.empty()){
-                if (argByteLen != 4){
-                    ERROR("not enough bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
-                }
-                InsertJmpMark(jmpMark, byte);
-                int32_t toWrite;
-                if (lastInstruction == "jmpr"){
-                    toWrite = -byte + 1;
-                }
-                else {
-                    toWrite = REGMEMAMOUNT;
-                    //bcFile.seekp(4, ios::cur);
-                }
-                bcFile.write((char*)&toWrite, 4);
-                byte += 4;
-                stepsToNext--;
-                jmpMark = {};
-                goto tokenProcEnd;
-            }
-            // ~jmp
-
-            union{
-                int num;
-                char parts[4];
-            };
-            auto it = regTable.find(token);
-            if (it != regTable.end()){
-                num = it->second;
-                goto regSkip1;
-            }
-            {
-                bool error;
-                num = ParseValue(token, error);
-                if(error){
-                    ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
-                }
-            }
-            if (argByteLen == 1){
-                if (num >= 256){
-                    WARNING("byte overflow on line " << line << ". Value \"" << token << "\" as a number \"" << (int)parts[0] << "\".");
-                }
-            }
-        regSkip1:
-            for (int i = 0; i < argByteLen; i++){
-                bcFile << parts[i];
-            }
-
-            stepsToNext--;
-            token.clear();
-            #if DEBUG
-                if (debugMode){
-                    if (stepsToNext == 0){
-                        bcFile << '_';
-                    }else{
-                        bcFile << '.';
-                    }
-                }
-            #endif
-            byte += argByteLen;
+        }
+    regSkip1:
+        for (int i = 0; i < argByteLen; i++){
+            outFile << parts[i];
         }
 
-    tokenProcEnd:
-        if (!asmFile.eof()){
-            goto cycle1;
+        stepsToNext--;
+        token.clear();
+        #if DEBUG
+            if (debugMode){
+                if (stepsToNext == 0){
+                    outFile << '_';
+                }else{
+                    outFile << '.';
+                }
+            }
+        #endif
+        byte += argByteLen;
+    }
+
+tokenProcEnd:
+    if (!asmFile.eof()){
+        goto cycle1;
+    }
+    // конец cycle1.
+    // TODO мб заменить goto на while ? 
+    
+    if (stepsToNext != 0){
+        ERROR("the last command do not have enough arguments");
+    }
+
+    
+    return;
+}
+
+int AsmParserMode(){
+    for(std::string& asmFileName : inpFiles){
+        std::string bcFileName = asmFileName;
+        {
+            auto dot = bcFileName.find_last_of('.');
+            if (dot != -1){
+                bcFileName.resize(dot);
+            }
+            bcFileName += ".shbyte";
         }
-        // конец cycle1.
-        // TODO мб заменить goto на while ? 
         
-        if (stepsToNext != 0){
-            ERROR("the last command do not have enough arguments");
-        }
+        // bytecode file.
+        std::fstream bcFile(bcFileName, ios::binary | ios::in | ios::out | ios::trunc);
+        std::vector<std::string_view> alreadyIncluded;
+        int byte = 0;
 
+        ParseAsm(asmFileName, bcFile, byte, alreadyIncluded);
         // jpm
         for (auto& [jmpName, placesToInsert] : jmpList){
             union{
@@ -779,12 +832,12 @@ int AsmParserMode(){
                 bcFile << parts[0] << parts[1] << parts[2] << parts[3];
             }
         }
+
         // ~jmp
-
-        bcFile.close();
         LOG(" > Done " << asmFileName);
-
+        bcFile.close();
     }
+    
     return 0;
 }
 
