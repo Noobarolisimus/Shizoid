@@ -54,77 +54,14 @@ int AsmParserMode();
 void Init();
 bool CreateJmpMark(const std::string_view&, int);
 void InsertJmpMark(const std::string_view&, int);
+int ParseArgs(int, char**);
+
 
 
 int main(int argc, char** argv){
     Init();
-    if (argc == 1){
-        LOG("Try --help");
-        return 0;
-    }
-    if (!strcmp("--help", argv[1])){
-        LOG(HELPTEXT);
-        return 0;
-    }
-
-    for(int i = 1; i < argc; i++){
-        if (strncmp(argv[i], "--", 2) == 0){
-            char* arg = argv[i] + 2;
-            if (strcmp(arg, "asm") == 0){
-                mode = Modes::ASM;
-                continue;
-            }
-            if (strcmp(arg, "bytecode") == 0){
-                mode = Modes::BYTECODE;
-                continue;
-            }
-            if (strcmp(arg, "both") == 0){
-                mode = Modes::BOTH;
-                continue;
-            }
-            #if DEBUG
-                if (strcmp(arg, "debug") == 0){
-                    debugMode = true;
-                    continue;
-                }
-            #endif
-            LOG("Unknown arg \"" << argv[i] << "\"")
-            return 0;
-        }
-        
-        if (*argv[i] == '-'){
-            char arg = *(argv[i] + 1);
-            if (arg == 'o'){
-                nextIsOFile = true;
-                continue;
-            }
-            LOG("Unknown arg \"" << argv[i] << "\"")
-            return 0;
-        }
-
-        if (!fs::exists(argv[i])){
-            LOG("There is no \"" << argv[i] << "\" file or path");
-            return 0;
-        }
-        if (nextIsOFile){
-            nextIsOFile = false;
-            if(!fs::is_directory(argv[i])){
-                LOG('"' << argv[i] << "\" is not a directory (-o)");
-                return 0;
-            }
-            outDir = argv[i];
-        }
-        else{
-            if (!fs::is_regular_file(argv[i])){
-                LOG('"' << argv[i] << "\" is not a file");
-                return 0;
-            }
-            inpFiles.push_back(std::string(argv[i]));
-        }
-    }
-
-    if (inpFiles.empty()){
-        LOG("There is no input files");
+    
+    if (int error = ParseArgs(argc, argv); error){
         return 0;
     }
 
@@ -275,6 +212,81 @@ int32_t ParseValue(const std::string_view val, bool& error){
         error = 1;
         return 0;
     }
+}
+
+
+int ParseArgs(int argc, char** argv){
+    if (argc == 1){
+        LOG("Try --help");
+        return 1;
+    }
+    if (!strcmp("--help", argv[1])){
+        LOG(HELPTEXT);
+        return 1;
+    }
+
+    for(int i = 1; i < argc; i++){
+        if (strncmp(argv[i], "--", 2) == 0){
+            char* arg = argv[i] + 2;
+            if (strcmp(arg, "asm") == 0){
+                mode = Modes::ASM;
+                continue;
+            }
+            if (strcmp(arg, "bytecode") == 0){
+                mode = Modes::BYTECODE;
+                continue;
+            }
+            if (strcmp(arg, "both") == 0){
+                mode = Modes::BOTH;
+                continue;
+            }
+            #if DEBUG
+                if (strcmp(arg, "debug") == 0){
+                    debugMode = true;
+                    continue;
+                }
+            #endif
+            LOG("Unknown arg \"" << argv[i] << "\"")
+            return 1;
+        }
+        
+        if (*argv[i] == '-'){
+            char arg = *(argv[i] + 1);
+            switch (arg){
+            case 'o':
+                nextIsOFile = true;
+                continue;
+            }
+            LOG("Unknown arg \"" << argv[i] << "\"")
+            return 1;
+        }
+
+        if (!fs::exists(argv[i])){
+            LOG("There is no \"" << argv[i] << "\" file or path");
+            return 1;
+        }
+        if (nextIsOFile){
+            nextIsOFile = false;
+            if(!fs::is_directory(argv[i])){
+                LOG('"' << argv[i] << "\" is not a directory (-o)");
+                return 1;
+            }
+            outDir = argv[i];
+        }
+        else{
+            if (!fs::is_regular_file(argv[i])){
+                LOG('"' << argv[i] << "\" is not a file");
+                return 1;
+            }
+            inpFiles.push_back(std::string(argv[i]));
+        }
+    }
+
+    if (inpFiles.empty()){
+        LOG("There is no input files");
+        return 1;
+    }
+    return 0;
 }
 
 
