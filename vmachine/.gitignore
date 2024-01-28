@@ -8,3 +8,5 @@ bin
 compile_command*
 .cache
 data/test*
+*.shbyte
+tablesLastModifiedTime.txt

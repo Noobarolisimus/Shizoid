@@ -1,4 +1,3 @@
-premake5 --cc=clang gmake2
-premake5 export-compile-commands
+premake5 export-compile-commands --cc=clang gmake2 
 echo "Copying compile_commands.json ..."
 copy compile_commands\debug_win64.json compile_commands.json

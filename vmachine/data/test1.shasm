@@ -1,11 +1,5 @@
 quit 0
 
-:data1:
-ins 4 "\nabc"
-ins 1 "\0"
-
-
-
 ; Выводит строку до "\0".
 ; [4] arg1 указатель на начало строки.
 :print@:
@@ -74,19 +68,3 @@ putp ia
 jmpr :printn@lpb2:
 :printn@lpe2:
 fnrt
-
-
-
-; :main:
-set ia 123412
-push ia
-fncr :printn@:
-pop null
-
-set ia :data1:
-push ia
-fncr :print@:
-pop null
-
-
-quit 0
