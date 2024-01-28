@@ -1,4 +1,5 @@
 // Остановился на: 
+#include <algorithm>
 #include <cstddef>
 #include <ios>
 #include <iostream>
@@ -456,8 +457,19 @@ int VMachineMode(){
 }
 
 
-void ParseAsm(const std::string& asmFileName, std::fstream& outFile, int& byte, std::vector<std::string_view>& alreadyIncluded){
-    LOG(" > Processing" << (byte == 0 ? " " : " (sub) ") << asmFileName);
+int ParseAsm(const std::string& asmFileName, std::fstream& outFile, int& byte, std::vector<std::string_view>& alreadyIncluded, int depth = 1){
+    {
+        auto result = std::find(alreadyIncluded.begin(), alreadyIncluded.end(), asmFileName);
+        if (result != alreadyIncluded.end()){
+            return 1;
+        }
+    }
+    // TODO медленно из-за постоянного переключения цвета ? 
+    LOG_STR(" ");
+    for (int i = 0; i < depth; i++){
+        LOG_STR(">");
+    }
+    LOG(" " << TERMCOLOR::FG_CYAN << "Processing " << TERMCOLOR::LOG_DEFAULT << asmFileName);
     std::ifstream asmFile(asmFileName);
     // Читаем пробелы.
     asmFile.unsetf(ios::skipws);
@@ -567,8 +579,12 @@ fullToken:
     // #
     if (token[0] == '#'){
         const char* str = token.c_str() + 1;
-        // TODO Добавить #include в дизайн-документ
+        // TODO Добавить #include и #once в дизайн-документ
+        if(stepsToNext != 0 || insA != 0){
+            ERROR("A command do not has enough args on line " << line - 1 << ".");
+        }
         if (strcmp(str, "include") == 0){
+            
             std::string fileName;
             // TODO Cократить путь.
             // TODO Сделать поиск по директориям и т.п. (=сделать умным).
@@ -590,10 +606,20 @@ fullToken:
             if (!fs::is_regular_file(fileName)){
                 ERROR("line " << line << ": file \"" << TERMCOLOR::FG_BLUE << fileName << TERMCOLOR::LOG_DEFAULT << "\" is not a regular.")
             }
-            ParseAsm(fileName, outFile, byte, alreadyIncluded);
-            LOG(" > Done (sub) " << fileName);
+
+            if(ParseAsm(fileName, outFile, byte, alreadyIncluded, depth + 1) == 0){
+                // TODO медленно из-за постоянного переключения цвета ? 
+                LOG_STR(" ");
+                for (int i = -1; i < depth; i++){
+                    LOG_STR(">");
+                }
+                LOG(" " << TERMCOLOR::FG_LGREEN << "Done " << TERMCOLOR::LOG_DEFAULT << fileName);
+            }
         }
-        // TODO добавить #once
+        else if (strcmp(str, "once") == 0){
+            alreadyIncluded.push_back(asmFileName);
+        }
+        line++;
         token.clear();
         goto tokenProcEnd;
     }
@@ -795,7 +821,7 @@ tokenProcEnd:
     }
 
     
-    return;
+    return 0;
 }
 
 int AsmParserMode(){
@@ -833,8 +859,8 @@ int AsmParserMode(){
             }
         }
 
-        // ~jmp
-        LOG(" > Done " << asmFileName);
+        // ~(jmp)
+        LOG(" > " << TERMCOLOR::FG_LGREEN << "Done " << TERMCOLOR::LOG_DEFAULT << asmFileName);
         bcFile.close();
     }
     
