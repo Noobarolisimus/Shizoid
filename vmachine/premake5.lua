@@ -5,7 +5,7 @@ function split (inputstr, sep)
     end
     local t={}
     for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
-            table.insert(t, str)
+            table.insert(t, str);
     end
     return t
 end
@@ -18,6 +18,15 @@ function removeComment(line)
         lineEnd = lineEnd - 1;
     end
     return line:sub(1, lineEnd);
+end
+
+-- Возвращает либо "windows", либо "unix"
+function getOs()
+    local sep = package.config:sub(1,1);
+    if sep == "\\" then
+        return "windows";
+    end
+    return "unix";
 end
 
 -- ~Всякие функции
@@ -50,7 +59,12 @@ project "VMachine"
         
         local old = file:read("a");
         file:close();
-        os.execute("forfiles /P .\\data /M *Table.txt /C \"cmd /c echo @file @fdate @ftime\" > data/tablesLastModifiedTime.txt");
+
+        if getOs() == "windows" then
+            os.execute("forfiles /P .\\data /M *Table.txt /C \"cmd /c echo @file @fdate @ftime\" > data/tablesLastModifiedTime.txt");
+        else
+            os.execute("> data/tablesLastModifiedTime.txt;for i in $(find ./data -name '*Table.txt');do date -r $i +%d%m%y%H%M%S >> data/tablesLastModifiedTime.txt;done")
+        end
         file = io.open("data/tablesLastModifiedTime.txt", "r");
 
         local new = file:read("a");

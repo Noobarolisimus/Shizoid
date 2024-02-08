@@ -1,4 +1,3 @@
-// Остановился на: 
 #include <algorithm>
 #include <cstddef>
 #include <iomanip>
@@ -61,6 +60,10 @@ bool CreateJmpMark(const std::string_view&, int);
 void InsertJmpMark(const std::string_view&, int);
 int ParseArgs(int, char**);
 
+void AppExit(int code){
+    SETCOLOR(TERMCOLOR::DEFAULT);
+    exit(0);
+}
 
 
 int main(int argc, char** argv){
@@ -85,12 +88,12 @@ int main(int argc, char** argv){
         
     }
     if (result != 0){
-        return result;
+        AppExit(result);
     }
 
     if (mode != Modes::ASM)
         result = VMachineMode();
-    return result;
+    AppExit(result);
 }
 
 
