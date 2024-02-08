@@ -1,6 +1,7 @@
 // Остановился на: 
 #include <algorithm>
 #include <cstddef>
+#include <iomanip>
 #include <ios>
 #include <iostream>
 #include <fstream>
@@ -12,11 +13,13 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <chrono>
 #include "src/tables.h"
 #include "src/macros.h"
 #include "src/macro_fns.h"
 
 namespace fs = std::filesystem;
+namespace chrono = std::chrono;
 using ios = std::ios;
 
 // TODO Посмотреть лимиты. Сейчас цифра взята с потолка.
@@ -40,13 +43,13 @@ enum class Modes {
     BOTH = ASM | BYTECODE,
 } mode;
 
-bool duplicates = false;
 bool nextIsOFile = false;
 std::vector<std::string> inpFiles;
 std::string outDir;
 // jmpList[jmpMark][placesToInsert].
 // jmpList[jmpMark][0] = -1 по умолчанию - jmpMarkPtr для jmpMark.
 std::map<std::string, std::vector<int32_t>, std::less<>> jmpList;
+bool printExitInfo = false;
 #if DEBUG
     bool debugMode = false;
 #endif 
@@ -242,6 +245,10 @@ int ParseArgs(int argc, char** argv){
                 mode = Modes::BOTH;
                 continue;
             }
+            if (strcmp(arg, "exitinfo") == 0){
+                printExitInfo = true;
+                continue;
+            }
             #if DEBUG
                 if (strcmp(arg, "debug") == 0){
                     debugMode = true;
@@ -310,12 +317,14 @@ int VMachineMode(){
         REG_sptr++;
     }
 
+    auto startTime = chrono::steady_clock::now();
+
     // Исполняем программу.
     while (1){
         switch (memory[REG_inn]) {
             default:
             case 0:
-                return inn_next(1);
+                goto vMachineModeEnding;
                 break;
             case 1:
                 memoryi(inn_next(1)) = inn_next(5);
@@ -454,6 +463,12 @@ int VMachineMode(){
         }
     }
     return 1;
+vMachineModeEnding: 
+    if (printExitInfo) {
+        int executionTime = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - startTime).count();
+        LOG("\nProgram finished in " << std::fixed << std::setprecision(3) << executionTime / 1000.f << " seconds with code " << inn_next(1));
+    }
+    return inn_next(1);
 }
 
 
@@ -862,6 +877,8 @@ int AsmParserMode(){
         // ~(jmp)
         LOG(" > " << TERMCOLOR::FG_LGREEN << "Done " << TERMCOLOR::LOG_DEFAULT << asmFileName);
         bcFile.close();
+        // TODO Сделать локальным ?
+        jmpList.clear();
     }
     
     return 0;

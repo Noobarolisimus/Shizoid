@@ -1,4 +1,4 @@
-  VMachine.exe [--bytecode|--asm|--both] [--debug] <files...> [-o <dir>]
+  VMachine.exe [--bytecode|--asm|--both] [--debug] [--exitinfo] <files...> [-o <dir>]
 
   --help
   input file type:
@@ -6,6 +6,8 @@
       (.shbyte).
       Virtual machine runs a program.
       Only one file.
+      --exitinfo
+        Prints info about executing time and exit code after program finish.
     --asm
       (.shasm).
       Creates bytecode files from shizoid assembler.

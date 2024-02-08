@@ -20,7 +20,7 @@ public:
 };
 
 // COLOR TERMINAL
-#if _WIN && !DEBUG
+#if _WIN && RELEASE && COLORTERMINAL
     enum TERMCOLOR{
         BG_BLACK = 0, FG_BLACK = 0,
         BG_BLUE = 0x10, FG_BLUE = 0x1,
