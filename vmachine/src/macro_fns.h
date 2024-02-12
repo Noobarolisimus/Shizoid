@@ -1,5 +1,4 @@
 #pragma once
-#include <fstream>
 #include <iostream>
 #include "macros.h"
 
@@ -103,7 +102,7 @@ public:
         #pragma endregion
     };
 
-    TERMCOLOR operator"" __TC(const char* str, size_t size);
+    TERMCOLOR operator"" _TC(const char* str, size_t size);
 #endif
 #if COLORTERMINAL
     #if _WIN && RELEASE

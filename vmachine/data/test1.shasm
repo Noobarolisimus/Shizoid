@@ -1,71 +1,14 @@
-#once
+jmp :main:
+#include examples/io.shasm
+
+:main:
+set ia :data1:
+push ia
+fncr :print@:
+pop null
+
 quit 0
 
-; Выводит строку до "\0".
-; [4] arg1 указатель на начало строки.
-:print@:
-copy ic fndt
-set ib 4
-sub ic ib
-ptov ic ic
-:print@lpb1:
-ptov ia ic
-set ib 0xff
-band ia ib
-jifn ia :print@lpe1:
-putp ia
-set ia 1
-add ic ia
-jmpr :print@lpb1:
-:print@lpe1:
-fnrt
 
-
-; Выводит десятичное число.
-; [4] arg1 число.
-:printn@:
-copy ic fndt
-set ib 4
-sub ic ib
-ptov ic ic
-set ia 0
-copy ib ic
-less ib ia
-jifn ib :printn@if1:
-putc "-"
-set ia -1
-mul ic ia
-:printn@if1:
-set ib -1
-push ib
-set ib 10
-:printn@lpb1:
-jifn ic :printn@lpe1:
-copy ia ic
-mod ia ib
-push ia
-div ic ib
-jmpr :printn@lpb1:
-:printn@lpe1:
-copy ia sptr
-set ib 4
-sub ia ib
-ptov ia ia
-set ib 1
-add ia ib
-not ia
-jifn ia :printn@if2:
-set ia 0
-push ia
-:printn@if2:
-set ic "0"
-:printn@lpb2:
-pop ia
-set ib 1
-add ib ia
-jifn ib :printn@lpe2:
-add ia ic
-putp ia
-jmpr :printn@lpb2:
-:printn@lpe2:
-fnrt
+:data1:
+ins 4 "qwe"

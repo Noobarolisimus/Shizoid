@@ -1,11 +1,9 @@
 #include <algorithm>
-#include <cstddef>
 #include <iomanip>
 #include <ios>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <queue>
 #include <stdint.h>
 #include <string_view>
 #include <type_traits>
@@ -42,6 +40,8 @@ enum class Modes {
     BOTH = ASM | BYTECODE,
 } mode;
 
+
+
 bool nextIsOFile = false;
 std::vector<std::string> inpFiles;
 std::string outDir;
@@ -68,7 +68,9 @@ void AppExit(int code){
 
 int main(int argc, char** argv){
     Init();
-    
+
+    DLOG(__cplusplus);
+
     if (int error = ParseArgs(argc, argv); error){
         return 0;
     }
@@ -78,27 +80,26 @@ int main(int argc, char** argv){
     REG_sptr = REGMEMAMOUNT;
 
     // TODO Заменить на error ?
-    int result = 0;
+    int error = 0;
 
     if (mode != Modes::BYTECODE){
         if (outDir.empty()){
             outDir = fs::current_path().generic_string();
         }
-        result = AsmParserMode();
+        error = AsmParserMode();
         
     }
-    if (result != 0){
-        AppExit(result);
+    if (error != 0){
+        AppExit(error);
     }
 
     if (mode != Modes::ASM)
-        result = VMachineMode();
-    AppExit(result);
+        error = VMachineMode();
+    AppExit(error);
 }
 
 
-// TODO rename.
-uint8_t UnshieldVal(uint8_t character){
+uint8_t ParseEscChar(uint8_t character){
     switch (character){
         case 'n': return '\n';
         case '\'': return '\'';
@@ -174,7 +175,7 @@ int32_t ParseValue(const std::string_view val, bool& error){
                         error = 1;
                         return 0;
                     }
-                    parts[size] = UnshieldVal(val[i + 1]);
+                    parts[size] = ParseEscChar(val[i + 1]);
                     i++;
                     continue;
                 }

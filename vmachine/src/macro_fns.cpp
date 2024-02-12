@@ -29,38 +29,38 @@
             return stream << rhs.color;
         }
 
-        TERMCOLOR operator"" __TC(const char* str, size_t size){
+        TERMCOLOR operator"" _TC(const char* str, size_t size){
             return TERMCOLOR(str, size);
         }
 
         #pragma region TERMCOLOR consts
-        const TERMCOLOR TERMCOLOR::FG_DEFAULT = "\x1b[39m"__TC;
-        const TERMCOLOR TERMCOLOR::BG_DEFAULT = "\x1b[49m"__TC;
+        const TERMCOLOR TERMCOLOR::FG_DEFAULT = "\x1b[39m"_TC;
+        const TERMCOLOR TERMCOLOR::BG_DEFAULT = "\x1b[49m"_TC;
         const TERMCOLOR TERMCOLOR::DEFAULT    = TERMCOLOR::FG_DEFAULT | TERMCOLOR::BG_DEFAULT;
-        const TERMCOLOR TERMCOLOR::FG_BLACK   = "\x1b[30m"__TC;
-        const TERMCOLOR TERMCOLOR::FG_RED     = "\x1b[31m"__TC;
-        const TERMCOLOR TERMCOLOR::FG_GREEN   = "\x1b[32m"__TC;
-        const TERMCOLOR TERMCOLOR::FG_YELLOW  = "\x1b[33m"__TC;
-        const TERMCOLOR TERMCOLOR::FG_BLUE    = "\x1b[34m"__TC;
-        const TERMCOLOR TERMCOLOR::FG_MAGENTA = "\x1b[35m"__TC;
-        const TERMCOLOR TERMCOLOR::FG_CYAN    = "\x1b[36m"__TC;
-        const TERMCOLOR TERMCOLOR::FG_WHITE   = "\x1b[37m"__TC;
+        const TERMCOLOR TERMCOLOR::FG_BLACK   = "\x1b[30m"_TC;
+        const TERMCOLOR TERMCOLOR::FG_RED     = "\x1b[31m"_TC;
+        const TERMCOLOR TERMCOLOR::FG_GREEN   = "\x1b[32m"_TC;
+        const TERMCOLOR TERMCOLOR::FG_YELLOW  = "\x1b[33m"_TC;
+        const TERMCOLOR TERMCOLOR::FG_BLUE    = "\x1b[34m"_TC;
+        const TERMCOLOR TERMCOLOR::FG_MAGENTA = "\x1b[35m"_TC;
+        const TERMCOLOR TERMCOLOR::FG_CYAN    = "\x1b[36m"_TC;
+        const TERMCOLOR TERMCOLOR::FG_WHITE   = "\x1b[37m"_TC;
         const TERMCOLOR TERMCOLOR::FG_LBLACK   = TERMCOLOR::FG_BLACK;
-        const TERMCOLOR TERMCOLOR::FG_LRED     = "\x1b[38;5;9m"__TC;//TERMCOLOR::FG_RED;
+        const TERMCOLOR TERMCOLOR::FG_LRED     = "\x1b[38;5;9m"_TC;//TERMCOLOR::FG_RED;
         const TERMCOLOR TERMCOLOR::FG_LGREEN   = TERMCOLOR::FG_GREEN;
-        const TERMCOLOR TERMCOLOR::FG_LYELLOW  = "\x1b[38;5;11m"__TC;//TERMCOLOR::FG_YELLOW;
-        const TERMCOLOR TERMCOLOR::FG_LBLUE    = "\x1b[38;5;6m"__TC;//TERMCOLOR::FG_BLUE;
+        const TERMCOLOR TERMCOLOR::FG_LYELLOW  = "\x1b[38;5;11m"_TC;//TERMCOLOR::FG_YELLOW;
+        const TERMCOLOR TERMCOLOR::FG_LBLUE    = "\x1b[38;5;6m"_TC;//TERMCOLOR::FG_BLUE;
         const TERMCOLOR TERMCOLOR::FG_LMAGENTA = TERMCOLOR::FG_MAGENTA;
         const TERMCOLOR TERMCOLOR::FG_LCYAN    = TERMCOLOR::FG_CYAN;
         const TERMCOLOR TERMCOLOR::FG_LWHITE   = TERMCOLOR::FG_WHITE;
-        const TERMCOLOR TERMCOLOR::BG_BLACK   = "\x1b[40m"__TC;
-        const TERMCOLOR TERMCOLOR::BG_RED     = "\x1b[41m"__TC;
-        const TERMCOLOR TERMCOLOR::BG_GREEN   = "\x1b[42m"__TC;
-        const TERMCOLOR TERMCOLOR::BG_YELLOW  = "\x1b[43m"__TC;
-        const TERMCOLOR TERMCOLOR::BG_BLUE    = "\x1b[44m"__TC;
-        const TERMCOLOR TERMCOLOR::BG_MAGENTA = "\x1b[45m"__TC;
-        const TERMCOLOR TERMCOLOR::BG_CYAN    = "\x1b[46m"__TC;
-        const TERMCOLOR TERMCOLOR::BG_WHITE   = "\x1b[47m"__TC;
+        const TERMCOLOR TERMCOLOR::BG_BLACK   = "\x1b[40m"_TC;
+        const TERMCOLOR TERMCOLOR::BG_RED     = "\x1b[41m"_TC;
+        const TERMCOLOR TERMCOLOR::BG_GREEN   = "\x1b[42m"_TC;
+        const TERMCOLOR TERMCOLOR::BG_YELLOW  = "\x1b[43m"_TC;
+        const TERMCOLOR TERMCOLOR::BG_BLUE    = "\x1b[44m"_TC;
+        const TERMCOLOR TERMCOLOR::BG_MAGENTA = "\x1b[45m"_TC;
+        const TERMCOLOR TERMCOLOR::BG_CYAN    = "\x1b[46m"_TC;
+        const TERMCOLOR TERMCOLOR::BG_WHITE   = "\x1b[47m"_TC;
         const TERMCOLOR TERMCOLOR::BG_LBLACK   = TERMCOLOR::BG_BLACK;
         const TERMCOLOR TERMCOLOR::BG_LRED     = TERMCOLOR::BG_RED;
         const TERMCOLOR TERMCOLOR::BG_LGREEN   = TERMCOLOR::BG_GREEN;
@@ -86,7 +86,7 @@
         return stream;
     }
 
-    TERMCOLOR operator"" __TC(const char* str, size_t size){
+    TERMCOLOR operator"" _TC(const char* str, size_t size){
         return TERMCOLOR();
     }
 

@@ -1,0 +1,68 @@
+jmp :main:
+
+#include data/test1.shasm
+
+
+:main:
+set ia 1
+push ia
+
+:lpb1:
+pop ia
+set ib 1
+add ib ia
+push ib
+
+set ib -30;-36
+add ib ia
+jifn ib :lpe1:
+
+push ia
+fncr :fib:
+pop null
+;putp ia
+push ia
+fncr :printn@:
+pop null
+putc " "
+jmpr :lpb1:
+:lpe1:
+
+quit 0
+
+
+; РАБОТАЕТ!!1!
+;
+:fib:
+; Получаем первый аргумент в ic.
+copy ia fndt
+set ib 4
+sub ia ib
+ptov ic ia
+
+; Если арг <= 2, то return 1
+set ib 2
+less ib ic
+not ib
+jifn ib :fib@if1:
+set ia 1
+fnrt
+:fib@if1:
+
+set ia -1
+add ia ic
+push ia
+fncr :fib:
+set ib 1
+pop id
+sub id ib
+push ia
+push id
+fncr :fib:
+pop null
+pop ib
+add ia ib
+fnrt
+
+
+quit 0

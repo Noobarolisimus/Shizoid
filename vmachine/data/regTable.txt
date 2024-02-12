@@ -2,7 +2,7 @@
 ;
 ; Файл содержит описание всех регистров.
 ;
-; Формат: name <byteLen>\n
+; Формат: name byteLen\n
 
 null 8
 inn 4
@@ -12,9 +12,6 @@ ca 1
 cb 1
 cc 1
 cd 1
-fa 8
-fb 8
-fc 8
 ia 4
 ib 4
 ic 4

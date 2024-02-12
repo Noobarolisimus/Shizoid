@@ -2,8 +2,8 @@
 ;
 ; Файл содержит описание всех asm инструкций.
 ;
-; Формат: [bytecode] name [argByteLen]...\n
-; Если bytecode не указан, bytecode равен bytecode предыдущего + 1.
+; Формат: [bytecode] name [argByteLen...]\n
+; Если bytecode не указан, bytecode равен bytecode'у предыдущего + 1.
 ; Если bytecode не указан, а предыдущего нет, то bytecode = 0.
 
 0 quit 4
