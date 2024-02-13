@@ -33,8 +33,7 @@ inline int32_t& memoryi(int bytes){
     return *(int32_t*)(memory + bytes);
 }
 
-// TODO битмаски сделал, а логику, основаную на них, нет (например в main'е)
-enum class Modes {
+enum Modes {
     ASM = 0b1,
     BYTECODE = 0b10,
     BOTH = ASM | BYTECODE,
@@ -62,14 +61,12 @@ int ParseArgs(int, char**);
 
 void AppExit(int code){
     SETCOLOR(TERMCOLOR::DEFAULT);
-    exit(0);
+    exit(code);
 }
 
 
 int main(int argc, char** argv){
     Init();
-
-    DLOG(__cplusplus);
 
     if (int error = ParseArgs(argc, argv); error){
         return 0;
@@ -81,7 +78,7 @@ int main(int argc, char** argv){
 
     int error = 0;
 
-    if (mode != Modes::BYTECODE){
+    if (mode & Modes::ASM){
         if (outDir.empty()){
             outDir = fs::current_path().generic_string();
         }
@@ -92,7 +89,7 @@ int main(int argc, char** argv){
         AppExit(error);
     }
 
-    if (mode != Modes::ASM)
+    if (mode & Modes::BYTECODE)
         error = VMachineMode();
     AppExit(error);
 }
@@ -375,6 +372,8 @@ int VMachineMode(){
             case 11:
                 LOG_STR(memory[REG_inn + 1]);
                 REG_inn += 2;
+                // TODO! Временно
+                std::cout.flush();
                 break;
             case 12:
                 LOG_STR(memory[memoryi(REG_inn + 1)]);
@@ -464,8 +463,8 @@ int VMachineMode(){
     return 1;
 vMachineModeEnding: 
     if (printExitInfo) {
-        int executionTime = chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - startTime).count();
-        LOG("\nProgram finished in " << std::fixed << std::setprecision(3) << executionTime / 1000.f << " seconds with code " << inn_next(1));
+        int executionTime = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - startTime).count();
+        LOG("\nProgram finished in " << std::fixed << std::setprecision(6) << executionTime / 1000000.f << " seconds with code " << inn_next(1));
     }
     return inn_next(1);
 }

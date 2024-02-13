@@ -132,8 +132,9 @@ public:
             ~__DLogFile();
         };
         extern __DLogFile __dLogFile;
-        // undef, чтобы не было варнинга
-        #undef DLOGSTREAM
+        #ifdef DLOGSTREAM
+            #undef DLOGSTREAM
+        #endif
         #define DLOGSTREAM __dLogFile.file
     #endif
 
