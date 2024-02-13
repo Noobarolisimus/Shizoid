@@ -79,7 +79,6 @@ int main(int argc, char** argv){
     REG_inn = REGMEMAMOUNT;
     REG_sptr = REGMEMAMOUNT;
 
-    // TODO Заменить на error ?
     int error = 0;
 
     if (mode != Modes::BYTECODE){
@@ -155,10 +154,6 @@ int32_t ParseValue(const std::string_view val, bool& error){
                     }
                     parts[cur++] = sParts[i];
                 }
-            }
-            for (int i = 0; i < 4; i++){
-                int qwe = 0;
-                (*(char*)&qwe) = parts[i];
             }
             return num;
         }
@@ -598,7 +593,6 @@ fullToken:
     // #
     if (token[0] == '#'){
         const char* str = token.c_str() + 1;
-        // TODO Добавить #include и #once в дизайн-документ
         if(stepsToNext != 0 || insA != 0){
             ERROR("A command do not has enough args on line " << line - 1 << ".");
         }
@@ -646,7 +640,7 @@ fullToken:
 
     // jmp
     if(token[0] == ':' && token[token.size() - 1] == ':'){
-        // TODO Кажется, тут UB, т.к. string_view ссылается на строку после отчистки.
+        // TODO! Кажется, тут UB, т.к. string_view ссылается на строку после отчистки.
         jmpMark = {token.begin() + 1, token.end() - 1};
         token.clear();
     }
@@ -692,7 +686,7 @@ fullToken:
         byte++;
     }
     else {
-        // Если token = значение (не команда)
+        // Если token == значение (не команда)
 
         // ins
         if (insA == -1){
@@ -732,7 +726,6 @@ fullToken:
             }
             else if (insA == 4){
                 InsertJmpMark(jmpMark, byte);
-                //outFile.seekp(4, ios::cur);
                 int32_t toWrite = REGMEMAMOUNT;
                 outFile.write((char*)&toWrite, 4);
                 byte += 4;
@@ -778,7 +771,6 @@ fullToken:
             }
             else {
                 toWrite = REGMEMAMOUNT;
-                //outFile.seekp(4, ios::cur);
             }
             outFile.write((char*)&toWrite, 4);
             byte += 4;
