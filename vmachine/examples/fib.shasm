@@ -13,7 +13,7 @@ set ib 1
 add ib ia
 push ib
 
-set ib -36
+set ib -15 ;-36
 add ib ia
 jifn ib :lpe1:
 

@@ -44,9 +44,6 @@ enum Modes {
 bool nextIsOFile = false;
 std::vector<std::string> inpFiles;
 std::string outDir;
-// jmpList[jmpMark][placesToInsert].
-// jmpList[jmpMark][0] = -1 по умолчанию - jmpMarkPtr для jmpMark.
-std::map<std::string, std::vector<int32_t>, std::less<>> jmpList;
 bool printExitInfo = false;
 #if DEBUG
     bool debugMode = false;
@@ -55,8 +52,8 @@ bool printExitInfo = false;
 int VMachineMode();
 int AsmParserMode();
 void Init();
-bool CreateJmpMark(const std::string_view&, int);
-void InsertJmpMark(const std::string_view&, int);
+// bool CreateJmpMark(const std::string_view&, int);
+// void InsertJmpMark(const std::string_view&, int);
 int ParseArgs(int, char**);
 
 void AppExit(int code){
@@ -115,6 +112,9 @@ int32_t ParseValue(const std::string_view val, bool& error){
         int32_t num;
         char parts[4];
     };
+
+    // clangd debug.
+    __cplusplus;
 
     if (val.size() > 2){
 
@@ -470,10 +470,26 @@ vMachineModeEnding:
 }
 
 
-int ParseAsm(const std::string& asmFileName, std::fstream& outFile, int& byte, std::vector<std::string_view>& alreadyIncluded, int depth = 1){
+// TODO Вынести в файл (+ методы в конце vmachine.cpp).
+struct AsmParseContext {
+    // bytecode file.
+    std::fstream bcFile;
+    std::vector<std::string_view> alreadyIncluded;
+    // jmpList[jmpMark][placesToInsert].
+    // jmpList[jmpMark][0] = -1 по умолчанию - jmpMarkPtr для jmpMark.
+    std::map<std::string, std::vector<int32_t>, std::less<>> jmpList;
+    int byte;
+
+    bool CreateJmpMark(const std::string_view& jmpMark, int bytePlaceInFile);
+    void InsertJmpMark(const std::string_view& jmpMark, int bytePlaceInFile);
+};
+
+// 0 - успешный парсинг.
+// 1 - отмена парсинга, встречен #once.
+int ParseAsm(const std::string& asmFileName, AsmParseContext& ctx, unsigned int depth = 1){
     {
-        auto result = std::find(alreadyIncluded.begin(), alreadyIncluded.end(), asmFileName);
-        if (result != alreadyIncluded.end()){
+        auto result = std::find(ctx.alreadyIncluded.begin(), ctx.alreadyIncluded.end(), asmFileName);
+        if (result != ctx.alreadyIncluded.end()){
             return 1;
         }
     }
@@ -523,7 +539,6 @@ cycle1:
                     ERROR("brackets" << " are not closed on line " << line << '.');
                 }
                 line++;
-                //outFile.flush();
                 goto fullToken;
             case '\"':
                 token.push_back(let);
@@ -619,17 +634,17 @@ fullToken:
                 ERROR("line " << line << ": file \"" << TERMCOLOR::FG_BLUE << fileName << TERMCOLOR::LOG_DEFAULT << "\" is not a regular.")
             }
 
-            if(ParseAsm(fileName, outFile, byte, alreadyIncluded, depth + 1) == 0){
+            if(ParseAsm(fileName, ctx, depth + 1) == 0){
                 // TODO медленно из-за постоянного переключения цвета ? 
                 LOG_STR(" ");
-                for (int i = -1; i < depth; i++){
+                for (int i = -1; i < (int)depth; i++){
                     LOG_STR(">");
                 }
                 LOG(" " << TERMCOLOR::FG_LGREEN << "Done " << TERMCOLOR::LOG_DEFAULT << fileName);
             }
         }
         else if (strcmp(str, "once") == 0){
-            alreadyIncluded.push_back(asmFileName);
+            ctx.alreadyIncluded.push_back(asmFileName);
         }
         line++;
         token.clear();
@@ -650,7 +665,7 @@ fullToken:
         
         // jmp
         if (!jmpMark.empty()){
-            bool error = CreateJmpMark(jmpMark, byte);
+            bool error = ctx.CreateJmpMark(jmpMark, ctx.byte);
             if (error){
                 ERROR("line " << line << ": jmp mark \"" << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << "\" already defined.");
             }
@@ -674,15 +689,15 @@ fullToken:
         }
         lastInstruction = token;
         commandInfo = &(it->second);
-        outFile << (char)((*commandInfo)[0]);
+        ctx.bcFile << (char)((*commandInfo)[0]);
         stepsToNext = commandInfo->size() - 1;
         token.clear();
         #if DEBUG
             if (debugMode){
-                outFile << ':';
+                ctx.bcFile << ':';
             }
         #endif
-        byte++;
+        ctx.byte++;
     }
     else {
         // Если token == значение (не команда)
@@ -724,10 +739,10 @@ fullToken:
                 val = ParseValue(token, error);
             }
             else if (insA == 4){
-                InsertJmpMark(jmpMark, byte);
+                ctx.InsertJmpMark(jmpMark, ctx.byte);
                 int32_t toWrite = REGMEMAMOUNT;
-                outFile.write((char*)&toWrite, 4);
-                byte += 4;
+                ctx.bcFile.write((char*)&toWrite, 4);
+                ctx.byte += 4;
                 jmpMark = {};
                 insA = 0;
                 stepsToNext--;
@@ -742,9 +757,9 @@ fullToken:
                 ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
             }
             for (int i = 0; i < insA; i++){
-                outFile << parts[i];
+                ctx.bcFile << parts[i];
             }
-            byte += insA;
+            ctx.byte += insA;
             insA = 0;
             stepsToNext--;
             token.clear();
@@ -763,16 +778,16 @@ fullToken:
             if (argByteLen != 4){
                 ERROR("not enough bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
             }
-            InsertJmpMark(jmpMark, byte);
+            ctx.InsertJmpMark(jmpMark, ctx.byte);
             int32_t toWrite;
             if (lastInstruction == "jmpr"){
-                toWrite = -byte + 1;
+                toWrite = -ctx.byte + 1;
             }
             else {
                 toWrite = REGMEMAMOUNT;
             }
-            outFile.write((char*)&toWrite, 4);
-            byte += 4;
+            ctx.bcFile.write((char*)&toWrite, 4);
+            ctx.byte += 4;
             stepsToNext--;
             jmpMark = {};
             goto tokenProcEnd;
@@ -802,7 +817,7 @@ fullToken:
         }
     regSkip1:
         for (int i = 0; i < argByteLen; i++){
-            outFile << parts[i];
+            ctx.bcFile << parts[i];
         }
 
         stepsToNext--;
@@ -810,13 +825,13 @@ fullToken:
         #if DEBUG
             if (debugMode){
                 if (stepsToNext == 0){
-                    outFile << '_';
+                    ctx.bcFile << '_';
                 }else{
-                    outFile << '.';
+                    ctx.bcFile << '.';
                 }
             }
         #endif
-        byte += argByteLen;
+        ctx.byte += argByteLen;
     }
 
 tokenProcEnd:
@@ -834,8 +849,10 @@ tokenProcEnd:
     return 0;
 }
 
+
 int AsmParserMode(){
     for(std::string& asmFileName : inpFiles){
+        AsmParseContext ctx{};
         std::string bcFileName = asmFileName;
         {
             auto dot = bcFileName.find_last_of('.');
@@ -845,14 +862,12 @@ int AsmParserMode(){
             bcFileName += ".shbyte";
         }
         
-        // bytecode file.
-        std::fstream bcFile(bcFileName, ios::binary | ios::in | ios::out | ios::trunc);
-        std::vector<std::string_view> alreadyIncluded;
-        int byte = 0;
+        ctx.bcFile.open(bcFileName, ios::binary | ios::in | ios::out | ios::trunc);
+        ctx.byte = 0;
 
-        ParseAsm(asmFileName, bcFile, byte, alreadyIncluded);
+        ParseAsm(asmFileName, ctx);
         // jpm
-        for (auto& [jmpName, placesToInsert] : jmpList){
+        for (auto& [jmpName, placesToInsert] : ctx.jmpList){
             union{
                 int32_t origin;
                 uint8_t parts[4];
@@ -861,19 +876,18 @@ int AsmParserMode(){
                 ERROR(TERMCOLOR::FG_LBLUE << ':' << jmpName << ":" << TERMCOLOR::LOG_DEFAULT << " is not defined.")
             }
             for (int j = 1; j < placesToInsert.size(); j++){
-                bcFile.seekp(placesToInsert[j], ios::beg);
-                bcFile >> parts[0] >> parts[1] >> parts[2] >> parts[3];
+                ctx.bcFile.seekp(placesToInsert[j], ios::beg);
+                ctx.bcFile >> parts[0] >> parts[1] >> parts[2] >> parts[3];
                 origin += placesToInsert[0];
-                bcFile.seekp(-4, ios::cur);
-                bcFile << parts[0] << parts[1] << parts[2] << parts[3];
+                ctx.bcFile.seekp(-4, ios::cur);
+                ctx.bcFile << parts[0] << parts[1] << parts[2] << parts[3];
             }
         }
 
         // ~(jmp)
         LOG(" > " << TERMCOLOR::FG_LGREEN << "Done " << TERMCOLOR::LOG_DEFAULT << asmFileName);
-        bcFile.close();
-        // TODO Сделать локальным ?
-        jmpList.clear();
+        ctx.bcFile.close();
+      ctx.jmpList.clear();
     }
     
     return 0;
@@ -887,7 +901,7 @@ void Init(){
 }
 
 // return 1 если jmpMark уже определена.
-bool CreateJmpMark(const std::string_view& jmpMark, int bytePlaceInFile){
+bool AsmParseContext::CreateJmpMark(const std::string_view& jmpMark, int bytePlaceInFile){
     auto it = jmpList.find(jmpMark);
     if (it == jmpList.end()){
         jmpList.insert({ (std::string)jmpMark, {bytePlaceInFile} });
@@ -901,7 +915,7 @@ bool CreateJmpMark(const std::string_view& jmpMark, int bytePlaceInFile){
     return 0;
 }
 
-void InsertJmpMark(const std::string_view& jmpMark, int bytePlaceInFile){
+void AsmParseContext::InsertJmpMark(const std::string_view& jmpMark, int bytePlaceInFile){
     auto it = jmpList.find(jmpMark);
     if (it == jmpList.end()){
         jmpList.insert({ (std::string)jmpMark, {-1, bytePlaceInFile} });
