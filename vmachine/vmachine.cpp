@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdint>
 #include <iomanip>
 #include <ios>
 #include <iostream>
@@ -101,8 +102,13 @@ uint8_t ParseEscChar(uint8_t character){
         case '\\': return '\\';
         case 't': return '\t';
     }
-    return 15; // ☼
+    return character;
 }
+
+void ParseNum(const std::string_view val, std::vector<uint8_t>& outBytes){
+    
+}
+
 
 // TODO переписать std::stoi на самописную с блекджеком и std::string_view.
 // char, hex, oct, bin.
@@ -112,9 +118,6 @@ int32_t ParseValue(const std::string_view val, bool& error){
         int32_t num;
         char parts[4];
     };
-
-    // clangd debug.
-    __cplusplus;
 
     if (val.size() > 2){
 
