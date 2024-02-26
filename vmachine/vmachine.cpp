@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cstdint>
 #include <iomanip>
 #include <ios>
 #include <iostream>
@@ -41,14 +40,15 @@ enum Modes {
 } mode;
 
 
-
-bool nextIsOFile = false;
-std::vector<std::string> inpFiles;
-std::string outDir;
-bool printExitInfo = false;
-#if DEBUG
-    bool debugMode = false;
-#endif 
+namespace ArgVars{
+    bool nextIsOFile = false;
+    std::vector<std::string> inpFiles;
+    std::string outDir;
+    bool printExitInfo = false;
+    #if DEBUG
+        bool debugMode = false;
+    #endif 
+}
 
 int VMachineMode();
 int AsmParserMode();
@@ -77,8 +77,8 @@ int main(int argc, char** argv){
     int error = 0;
 
     if (mode & Modes::ASM){
-        if (outDir.empty()){
-            outDir = fs::current_path().generic_string();
+        if (ArgVars::outDir.empty()){
+            ArgVars::outDir = fs::current_path().generic_string();
         }
         error = AsmParserMode();
         
@@ -102,10 +102,28 @@ uint8_t ParseEscChar(uint8_t character){
         case '\\': return '\\';
         case 't': return '\t';
     }
+    // TODO? Заменить на std::optional
     return character;
 }
 
-void ParseNum(const std::string_view val, std::vector<uint8_t>& outBytes){
+void ParseNum(std::string_view val, std::vector<uint8_t>& outBytes){
+    static_assert(std::endian::native == std::endian::little, "Oopsy, only littleEndian is supported.");
+    outBytes.resize(0);
+    int base = 10;
+    if (val.size() >= 2 && !std::isdigit((unsigned char)val[1])){
+        switch (val[1]){
+        case 'b':
+            base = 2;
+            break;
+        case 'o':
+            base = 8;
+            break;
+        case 'x':
+            base = 16;
+            break;
+        }
+        val.remove_prefix(2);
+    }
     
 }
 
@@ -220,6 +238,7 @@ int32_t ParseValue(const std::string_view val, bool& error){
 
 
 int ParseArgs(int argc, char** argv){
+    using namespace ArgVars;
     if (argc == 1){
         LOG("Try --help");
         return 1;
@@ -301,15 +320,15 @@ int ParseArgs(int argc, char** argv){
 
 int VMachineMode(){
     if (mode == Modes::BOTH){
-        auto dot = inpFiles[0].find_last_of('.');
+        auto dot = ArgVars::inpFiles[0].find_last_of('.');
         if (dot != -1){
-            inpFiles[0].resize(dot);
+            ArgVars::inpFiles[0].resize(dot);
         }
-        inpFiles[0] += ".shbyte";
+        ArgVars::inpFiles[0] += ".shbyte";
     }
 
     // Читаем программу.
-    std::ifstream asmFile(inpFiles[0]);
+    std::ifstream asmFile(ArgVars::inpFiles[0]);
     
     while (!asmFile.eof()){
         asmFile.read((char*)memory + REG_sptr, 1);
@@ -465,7 +484,7 @@ int VMachineMode(){
     }
     return 1;
 vMachineModeEnding: 
-    if (printExitInfo) {
+    if (ArgVars::printExitInfo) {
         int executionTime = chrono::duration_cast<chrono::microseconds>(chrono::steady_clock::now() - startTime).count();
         LOG("\nProgram finished in " << std::fixed << std::setprecision(6) << executionTime / 1000000.f << " seconds with code " << inn_next(1));
     }
@@ -696,7 +715,7 @@ fullToken:
         stepsToNext = commandInfo->size() - 1;
         token.clear();
         #if DEBUG
-            if (debugMode){
+            if (ArgVars::debugMode){
                 ctx.bcFile << ':';
             }
         #endif
@@ -826,7 +845,7 @@ fullToken:
         stepsToNext--;
         token.clear();
         #if DEBUG
-            if (debugMode){
+            if (ArgVars::debugMode){
                 if (stepsToNext == 0){
                     ctx.bcFile << '_';
                 }else{
@@ -854,7 +873,7 @@ tokenProcEnd:
 
 
 int AsmParserMode(){
-    for(std::string& asmFileName : inpFiles){
+    for(std::string& asmFileName : ArgVars::inpFiles){
         AsmParseContext ctx{};
         std::string bcFileName = asmFileName;
         {
