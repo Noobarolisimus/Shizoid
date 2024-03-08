@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <cctype>
+#include <cstdint>
 #include <iomanip>
 #include <ios>
 #include <iostream>
@@ -11,12 +13,15 @@
 #include <string>
 #include <cstring>
 #include <chrono>
+#include <bit>
+#include <ranges>
 #include "src/tables.h"
 #include "src/macros.h"
 #include "src/macro_fns.h"
 
 namespace fs = std::filesystem;
 namespace chrono = std::chrono;
+namespace views = std::views;
 using ios = std::ios;
 
 // TODO Посмотреть лимиты. Сейчас цифра взята с потолка.
@@ -43,6 +48,7 @@ enum Modes {
 namespace ArgVars{
     bool nextIsOFile = false;
     std::vector<std::string> inpFiles;
+    // TODO нигде не используется, что забавно.
     std::string outDir;
     bool printExitInfo = false;
     #if DEBUG
@@ -106,43 +112,91 @@ uint8_t ParseEscChar(uint8_t character){
     return character;
 }
 
-void ParseNum(std::string_view val, std::vector<uint8_t>& outBytes){
+// TODO
+int32_t BytesToInt(const std::vector<uint8_t> bytes);
+
+// Выбрасывает 0xff, если digit неправильный
+inline unsigned int HexToInt(uint8_t digit){
+    if (std::isdigit((uint8_t)digit)){
+        return digit - '0';
+    }
+    if (digit >= 'a' && digit <= 'f'){
+        return digit - 'a' + 10;
+    }
+    if (digit >= 'A' && digit <= 'F'){
+        return digit - 'A' + 10;
+    }
+    return 0xff;
+}
+
+// void LongAdd(uint8_t a, std::vector<uint8_t>& b, int bytePlaceToAdd){
+//     
+// }
+
+// TODO самописный std::stoi
+// dec - 4 Bytes.
+// bin, oct, hex - unlimited.
+void ParseNum(std::string_view val, std::vector<uint8_t>& outBytes, bool& error){
     static_assert(std::endian::native == std::endian::little, "Oopsy, only littleEndian is supported.");
-    outBytes.resize(0);
-    int base = 10;
-    if (val.size() >= 2 && !std::isdigit((unsigned char)val[1])){
+    if (val.size() >= 2 && !std::isdigit((uint8_t)val[1])){
+        int baseShift;
         switch (val[1]){
         case 'b':
-            base = 2;
+            baseShift = 1;
             break;
         case 'o':
-            base = 8;
+            baseShift = 3;
             break;
         case 'x':
-            base = 16;
+            baseShift = 4;
             break;
+        default:
+            error = true;
+            return;
         }
+        int bitCur = outBytes.size() * 8;
+        outBytes.insert(outBytes.end(), {0, 0});
         val.remove_prefix(2);
+        for (uint8_t let : val | views::reverse){
+            int byteCur = bitCur / 8;
+            if (byteCur + 1 >= outBytes.size()){
+                outBytes.push_back(0);
+            }
+            unsigned int bits = HexToInt(let);
+            if (bits == 0xff){
+                error = true;
+                return;
+            }
+            // TODO! Возможно сложение заходит на память вне outBytes.
+            // Хотя там могут прибавляться только нули, так что ничего плохого случиться не должно.
+            *(uint32_t*)(&outBytes[byteCur]) += bits << (bitCur - byteCur * 8);
+            bitCur += baseShift;
+        }
+        goto parseNum_zeros;
     }
-    
+    outBytes.insert(outBytes.end(), {0, 0, 0, 0});
+    size_t cur;
+    // TODO Переписать std::stoi
+    *(int32_t*)(&outBytes[outBytes.size() - 4]) = std::stoi((const std::string)(val), &cur);
+    if (cur != val.size()){
+        error = true;
+        return;
+    }
+parseNum_zeros:
+    for (int i = outBytes.size() -1; i > 0 && outBytes[i] == 0; i--){
+        outBytes.pop_back();
+    }
+    return;
 }
 
 
 // TODO переписать std::stoi на самописную с блекджеком и std::string_view.
 // char, hex, oct, bin.
-int32_t ParseValue(const std::string_view val, bool& error){
+void ParseValue(const std::string_view val, std::vector<uint8_t>& outBytes, bool& error){
     error = 0;
-    union{
-        int32_t num;
-        char parts[4];
-    };
-
     if (val.size() > 2){
-
-        if ( val[0] == '(' && val[val.size() - 1] == ')' ){
-            int cur = 0;
+        if (val[0] == '(' && val[val.size() - 1] == ')'){
             int leftBound = 0;
-            num = 0;
             while (leftBound != val.size() - 1){
                 int rightBound = val.find(' ', leftBound + 1);
                 if (rightBound == -1){
@@ -150,90 +204,33 @@ int32_t ParseValue(const std::string_view val, bool& error){
                 }
                 std::string_view subVal(val.begin() + leftBound + 1, val.begin() + rightBound);
                 leftBound = rightBound;
-                union{
-                    int32_t sNum;
-                    char sParts[4];
-                };
-                sNum = ParseValue(subVal, error);
+                ParseValue(subVal, outBytes, error);
                 if (error){
-                    return 0;
-                }
-                int bytes = 4;
-                for (int i = 3; i > 0; i--){
-                    if (sParts[i] != 0){
-                        break;
-                    }
-                    bytes--;
-                }
-                for(int i = 0; i < bytes; i++){
-                    if (cur > 3){
-                        error = true;
-                        return 0;
-                    }
-                    parts[cur++] = sParts[i];
+                    return;
                 }
             }
-            return num;
+            return;
         }
 
         if (val[0] == '"' && val[val.size() - 1] == '"'){
-            int size = 0;
-            for (int i = 1; i < val.size() - 1; i++, size++){
-                if (size > 4){
-                    error = 0;
-                    return 0;
-                }
+            // TODO? Возможно стоит находить все экранированые символы и учитывать это.
+            outBytes.reserve(outBytes.size() + val.size());
+            for (int i = 1; i < val.size() - 1; i++){
                 if (val[i] == '\\'){
                     if (i > val.size() - 3){
-                        error = 1;
-                        return 0;
+                        error = true;
+                        return;
                     }
-                    parts[size] = ParseEscChar(val[i + 1]);
+                    outBytes.push_back(ParseEscChar(val[i + 1]));
                     i++;
                     continue;
                 }
-                parts[size] = val[i];
+                outBytes.push_back(val[i]);
             }
-
-            for (int i = size; i < 4; i++){
-                parts[i] = 0;
-            }
-            return num;
-        }
-        
-        try {
-            int base;
-            switch (val[1]){
-                case 'b':
-                    base = 2;
-                    break;
-                case 'o':
-                    base = 8;
-                    break;
-                case 'x':
-                    base = 16;
-                    break;
-                default:
-                    num = std::stoi((std::string)val);
-                    return num;
-            }
-            num = std::stoi((std::string)val.substr(2), 0, base);
-            return num;
-        }
-        catch (...) {
-            error = 1;
-            return 0;
+            return;
         }
     }
-
-    try {
-        num = std::stoi((std::string)val);
-        return num;
-    }
-    catch (...) {
-        error = 1;
-        return 0;
-    }
+    ParseNum(val, outBytes, error);
 }
 
 
@@ -340,146 +337,146 @@ int VMachineMode(){
     // Исполняем программу.
     while (1){
         switch (memory[REG_inn]) {
-            default:
-            case 0:
-                goto vMachineModeEnding;
-                break;
-            case 1:
-                memoryi(inn_next(1)) = inn_next(5);
+        default:
+        case 0:
+            goto vMachineModeEnding;
+            break;
+        case 1:
+            memoryi(inn_next(1)) = inn_next(5);
+            REG_inn += 9;
+            break;
+        case 2:
+            REG_inn = inn_next(1);
+            break;
+        case 3:
+            memoryi(inn_next(1)) = memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 4:
+            if (memoryi(inn_next(1))){
                 REG_inn += 9;
-                break;
-            case 2:
-                REG_inn = inn_next(1);
-                break;
-            case 3:
-                memoryi(inn_next(1)) = memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 4:
-                if (memoryi(inn_next(1))){
-                    REG_inn += 9;
-                }
-                else {
-                    REG_inn = inn_next(5);
-                }
-                break;
-            case 5:
-                memoryi(REG_sptr) = memoryi(inn_next(1));
-                REG_sptr += 4;
-                REG_inn += 5;
-                break;
-            case 6:
-                REG_sptr -= 4;
-                memoryi(inn_next(1)) = memoryi(REG_sptr);
-                REG_inn += 5;
-                break;
-            case 7:
-                memoryi(REG_sptr) = REG_inn + 5;
-                memoryi(REG_sptr + 4) = REG_fndt;
-                REG_fndt = REG_sptr;
-                REG_sptr += 8;
-                REG_inn = inn_next(1);
-                break;
-            case 8:
-                REG_inn = memoryi(REG_fndt);
-                REG_sptr = REG_fndt;
-                REG_fndt = memoryi(REG_sptr + 4);
-                break;
-            case 9:
-                REG_inn++;
-            case 10:
-                std::cin >> memory[memoryi(REG_inn + 1)];
-                REG_inn += 5;
-                break;
-            case 11:
-                LOG_STR(memory[REG_inn + 1]);
-                REG_inn += 2;
-                // TODO! Временно
-                std::cout.flush();
-                break;
-            case 12:
-                LOG_STR(memory[memoryi(REG_inn + 1)]);
-                REG_inn += 5;
-                break;
-            case 13:
-                memoryi(inn_next(1)) = memoryi(memoryi(inn_next(5)));
-                REG_inn += 9;
-                break;
-            case 14:
-                memoryi(memoryi(inn_next(1))) = memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 15:
-                REG_inn += inn_next(1);
-                break;
-            case 65:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) + memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 66:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) - memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 67:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) / memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 68:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) % memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 69:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) * memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 70:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) == memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 71:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) < memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 72:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) <= memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 73:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) && memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 74:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) || memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 75:
-                memoryi(inn_next(1)) = !memoryi(inn_next(1));
-                REG_inn += 5;
-                break;
-            case 76:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) ^ memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 77:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) & memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 78:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) | memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 79:
-                memoryi(inn_next(1)) = ~memoryi(inn_next(1));
-                REG_inn += 5;
-                break;
-            case 80:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) << memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
-            case 81:
-                memoryi(inn_next(1)) = memoryi(inn_next(1)) >> memoryi(inn_next(5));
-                REG_inn += 9;
-                break;
+            }
+            else {
+                REG_inn = inn_next(5);
+            }
+            break;
+        case 5:
+            memoryi(REG_sptr) = memoryi(inn_next(1));
+            REG_sptr += 4;
+            REG_inn += 5;
+            break;
+        case 6:
+            REG_sptr -= 4;
+            memoryi(inn_next(1)) = memoryi(REG_sptr);
+            REG_inn += 5;
+            break;
+        case 7:
+            memoryi(REG_sptr) = REG_inn + 5;
+            memoryi(REG_sptr + 4) = REG_fndt;
+            REG_fndt = REG_sptr;
+            REG_sptr += 8;
+            REG_inn = inn_next(1);
+            break;
+        case 8:
+            REG_inn = memoryi(REG_fndt);
+            REG_sptr = REG_fndt;
+            REG_fndt = memoryi(REG_sptr + 4);
+            break;
+        case 9:
+            REG_inn++;
+        case 10:
+            std::cin >> memory[memoryi(REG_inn + 1)];
+            REG_inn += 5;
+            break;
+        case 11:
+            LOG_STR(memory[REG_inn + 1]);
+            REG_inn += 2;
+            // TODO! Временно
+            std::cout.flush();
+            break;
+        case 12:
+            LOG_STR(memory[memoryi(REG_inn + 1)]);
+            REG_inn += 5;
+            break;
+        case 13:
+            memoryi(inn_next(1)) = memoryi(memoryi(inn_next(5)));
+            REG_inn += 9;
+            break;
+        case 14:
+            memoryi(memoryi(inn_next(1))) = memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 15:
+            REG_inn += inn_next(1);
+            break;
+        case 65:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) + memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 66:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) - memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 67:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) / memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 68:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) % memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 69:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) * memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 70:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) == memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 71:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) < memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 72:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) <= memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 73:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) && memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 74:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) || memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 75:
+            memoryi(inn_next(1)) = !memoryi(inn_next(1));
+            REG_inn += 5;
+            break;
+        case 76:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) ^ memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 77:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) & memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 78:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) | memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 79:
+            memoryi(inn_next(1)) = ~memoryi(inn_next(1));
+            REG_inn += 5;
+            break;
+        case 80:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) << memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
+        case 81:
+            memoryi(inn_next(1)) = memoryi(inn_next(1)) >> memoryi(inn_next(5));
+            REG_inn += 9;
+            break;
         }
     }
     return 1;
@@ -496,7 +493,7 @@ vMachineModeEnding:
 struct AsmParseContext {
     // bytecode file.
     std::fstream bcFile;
-    std::vector<std::string_view> alreadyIncluded;
+    std::vector<std::string> dontInclude;
     // jmpList[jmpMark][placesToInsert].
     // jmpList[jmpMark][0] = -1 по умолчанию - jmpMarkPtr для jmpMark.
     std::map<std::string, std::vector<int32_t>, std::less<>> jmpList;
@@ -507,11 +504,11 @@ struct AsmParseContext {
 };
 
 // 0 - успешный парсинг.
-// 1 - отмена парсинга, встречен #once.
-int ParseAsm(const std::string& asmFileName, AsmParseContext& ctx, unsigned int depth = 1){
+// 1 - отмена парсинга, файл встречен не впервый раз (#once).
+int ParseAsm(const std::string_view& asmFileName, AsmParseContext& ctx, unsigned int depth = 1){
     {
-        auto result = std::find(ctx.alreadyIncluded.begin(), ctx.alreadyIncluded.end(), asmFileName);
-        if (result != ctx.alreadyIncluded.end()){
+        auto result = std::find(ctx.dontInclude.begin(), ctx.dontInclude.end(), asmFileName);
+        if (result != ctx.dontInclude.end()){
             return 1;
         }
     }
@@ -533,7 +530,11 @@ int ParseAsm(const std::string& asmFileName, AsmParseContext& ctx, unsigned int 
     int line = 1;
     bool isQuotes = false;
     bool isBrackets = false;
-    int32_t insA = 0;
+    // Да, плохо, но:
+    //  -1 - ничего.
+    //  -2 - когда нашли ins.
+    // >=0 - когда нашли A.
+    int32_t insA = -1;
 
     
 cycle1:
@@ -629,7 +630,7 @@ fullToken:
     // #
     if (token[0] == '#'){
         const char* str = token.c_str() + 1;
-        if(stepsToNext != 0 || insA != 0){
+        if(stepsToNext != 0 || insA != -1){
             ERROR("A command do not has enough args on line " << line - 1 << ".");
         }
         if (strcmp(str, "include") == 0){
@@ -657,7 +658,7 @@ fullToken:
             }
 
             if(ParseAsm(fileName, ctx, depth + 1) == 0){
-                // TODO медленно из-за постоянного переключения цвета ? 
+                // TODO? медленно из-за постоянного переключения цвета? 
                 LOG_STR(" ");
                 for (int i = -1; i < (int)depth; i++){
                     LOG_STR(">");
@@ -666,7 +667,7 @@ fullToken:
             }
         }
         else if (strcmp(str, "once") == 0){
-            ctx.alreadyIncluded.push_back(asmFileName);
+            ctx.dontInclude.push_back((std::string)asmFileName);
         }
         line++;
         token.clear();
@@ -698,7 +699,7 @@ fullToken:
         
         // ins
         if (token == "ins"){
-            insA = -1;
+            insA = -2;
             stepsToNext = 2;
             token.clear();
             goto tokenProcEnd;
@@ -725,75 +726,86 @@ fullToken:
         // Если token == значение (не команда)
 
         // ins
-        if (insA == -1){
+        if (insA == -2){
             // Первый аргумент ins.
 
             // Считываем размер следующего аргумета в байтах.
             if (!jmpMark.empty()){
-                ERROR("line " << line << ". Jmp mark cannot be a size of the value.");
+                ERROR("line " << line << ". Jmp mark cannot be a size of a value.");
             }
             bool error;
-            insA = ParseValue(token, error);
+            {
+                std::vector<uint8_t> seq;
+                ParseValue(token, seq, error);
+                if(seq.size() > 4){
+                    ERROR("first argument is >4 Bytes on line " << line << '.');
+                }
+                insA = 0;
+                for (int i = 0; i < seq.size(); i++){
+                    *((uint8_t*)(&insA) + i) = seq[i];
+                }
+            }
             if (error){
                 ERROR("wrong value format on line " << line << '.');
             }
-            if (insA <= 0){
-                ERROR("first argument is <= 0 on line " << line << '.');
-            }
-            if (insA > 4){
-                ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
+            if (insA < 0){
+                ERROR("first argument is <0 on line " << line << '.');
             }
             stepsToNext--;
             token.clear();
             goto tokenProcEnd;
         }
-        if (insA){
+        if (insA >= 0){
             // Второй аргумент ins.
 
             bool error;
-            union{
-                int32_t val;
-                uint8_t parts[4];
-            };
+            std::vector<uint8_t> val;
 
             // jmp
             if (jmpMark.empty()){
-                val = ParseValue(token, error);
+                ParseValue(token, val, error);
+                if (insA != 0 && val.size() > insA){
+                    ERROR("line " << line << ": Too large value \"" << token << "\". " << val.size() << "/" << insA << " Bytes.")
+                }
             }
-            else if (insA == 4){
+            else if (insA == 4 || insA == 0){
                 ctx.InsertJmpMark(jmpMark, ctx.byte);
                 int32_t toWrite = REGMEMAMOUNT;
                 ctx.bcFile.write((char*)&toWrite, 4);
                 ctx.byte += 4;
                 jmpMark = {};
-                insA = 0;
+                insA = -1;
                 stepsToNext--;
                 goto tokenProcEnd;
             }
             else {
-                ERROR("not enough bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
+                ERROR((insA < 4 ? "not enough" : "too many") << " bytes in the argument to store a jmp mark " << TERMCOLOR::FG_LBLUE << ':' << jmpMark << ':' << TERMCOLOR::LOG_DEFAULT << " on line " << line << '.');
             }
             // ~jmp
 
             if (error){
                 ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
             }
-            for (int i = 0; i < insA; i++){
-                ctx.bcFile << parts[i];
+            if (insA == 0){
+                insA = val.size();
+            }
+            ctx.bcFile.write((const char*)&val[0], std::min(insA, (int)val.size()));
+            for (int i = val.size(); i < insA; i++){
+                ctx.bcFile << (uint8_t)0;
             }
             ctx.byte += insA;
-            insA = 0;
+            insA = -1;
             stepsToNext--;
             token.clear();
             goto tokenProcEnd;
         }
         // ~ins
         
-
         int argByteLen = (*commandInfo)[commandInfo->size() - stepsToNext];
+        // TODO!!!! Убрать, когда закончу реализацию.
         if (argByteLen > 4){
             // TODO ?
-            ERROR("values >4 Bytes is not suported yet. Line " << line << '.');
+            ERROR("values >4 Bytes are not suported yet. Line " << line << '.');
         }
         // jmp
         if (!jmpMark.empty()){
@@ -816,34 +828,34 @@ fullToken:
         }
         // ~jmp
 
-        union{
-            int num;
-            char parts[4];
-        };
-        auto it = regTable.find(token);
-        if (it != regTable.end()){
-            num = it->second;
-            goto regSkip1;
+        std::vector<uint8_t> val;
+        val.reserve(4);
+        {
+            auto it = regTable.find(token);
+            if (it != regTable.end()){
+                val.resize(4);
+                *(int32_t*)(&val[0]) = it->second;
+                goto regSkip1;
+            }
         }
         {
             bool error;
-            num = ParseValue(token, error);
-            if(error){
+            ParseValue(token, val, error);
+            if (error || val.empty()){
                 ERROR("wrong value \"" << TERMCOLOR::FG_LBLUE << token << TERMCOLOR::LOG_DEFAULT << "\" on line " << line << '.');
             }
         }
-        if (argByteLen == 1){
-            if (num >= 256){
-                WARNING("byte overflow on line " << line << ". Value \"" << token << "\" as a number \"" << (int)parts[0] << "\".");
-            }
+        if (val.size() > argByteLen){
+            ERROR("line " << line << ": Too large value \"" << token << "\". " << val.size() << "/" << argByteLen << " Bytes.")
         }
     regSkip1:
         for (int i = 0; i < argByteLen; i++){
-            ctx.bcFile << parts[i];
+            ctx.bcFile << (i < val.size() ? val[i] : (uint8_t)0);
         }
 
         stepsToNext--;
         token.clear();
+        // TODO? Удалить?
         #if DEBUG
             if (ArgVars::debugMode){
                 if (stepsToNext == 0){
@@ -890,12 +902,15 @@ int AsmParserMode(){
         ParseAsm(asmFileName, ctx);
         // jpm
         for (auto& [jmpName, placesToInsert] : ctx.jmpList){
+            if (placesToInsert[0] == -1){
+                ERROR("Unknown jmpMark \"" << TERMCOLOR::FG_LBLUE << jmpName << TERMCOLOR::LOG_DEFAULT << "\".")
+            }
             union{
                 int32_t origin;
                 uint8_t parts[4];
             };
             if (origin == -1){
-                ERROR(TERMCOLOR::FG_LBLUE << ':' << jmpName << ":" << TERMCOLOR::LOG_DEFAULT << " is not defined.")
+                ERROR(TERMCOLOR::FG_LBLUE << ':' << jmpName << ':' << TERMCOLOR::LOG_DEFAULT << " is not defined.")
             }
             for (int j = 1; j < placesToInsert.size(); j++){
                 ctx.bcFile.seekp(placesToInsert[j], ios::beg);

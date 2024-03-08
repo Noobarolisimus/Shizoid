@@ -1,10 +1,13 @@
 jmp :main:
 #include examples/io.shasm
+; #include data/testLib1.shasm
 
 :main:
-set ia :data1:
+
+; 349167
+set ia 0x553ef111
 push ia
-fncr :print@:
+fncr :printn@:
 pop null
 
 quit 0
