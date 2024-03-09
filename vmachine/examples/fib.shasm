@@ -1,9 +1,12 @@
 jmp :main:
 
 #include examples/io.shasm
+#include data/testLib1.shasm
 
 
 :main:
+fncr :printSptr@:
+
 set ia 1
 push ia
 
@@ -13,20 +16,23 @@ set ib 1
 add ib ia
 push ib
 
-set ib -15 ;-36
+set ib -15; -3600
 add ib ia
 jifn ib :lpe1:
 
 push ia
 fncr :fib:
 pop null
-;putp ia
+;putc "q"
 push ia
 fncr :printn@:
 pop null
 putc " "
 jmpr :lpb1:
 :lpe1:
+
+putc "\n"
+fncr :printSptr@:
 
 quit 0
 

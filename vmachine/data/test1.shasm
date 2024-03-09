@@ -5,7 +5,7 @@ jmp :main:
 :main:
 
 ; 349167
-set ia 0x553ef111
+set ia 0x553ef
 push ia
 fncr :printn@:
 pop null

@@ -51,4 +51,8 @@ for path in ${paths[@]}; do
     pathsLine+="$path "
 done
 
+if ! [[ -e bin_shiz && -d bin_shiz ]]; then
+    mkdir bin_shiz
+fi
+
 ./bin/vmachine --exitinfo --both -o bin_shiz $pathsLine

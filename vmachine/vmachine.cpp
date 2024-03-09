@@ -47,13 +47,9 @@ enum Modes {
 
 namespace ArgVars{
     bool nextIsOFile = false;
-    std::vector<std::string> inpFiles;
-    // TODO нигде не используется, что забавно.
+    std::vector<fs::path> inpFiles;
     std::string outDir;
     bool printExitInfo = false;
-    #if DEBUG
-        bool debugMode = false;
-    #endif 
 }
 
 int VMachineMode();
@@ -108,7 +104,6 @@ uint8_t ParseEscChar(uint8_t character){
         case '\\': return '\\';
         case 't': return '\t';
     }
-    // TODO? Заменить на std::optional
     return character;
 }
 
@@ -167,7 +162,7 @@ void ParseNum(std::string_view val, std::vector<uint8_t>& outBytes, bool& error)
                 error = true;
                 return;
             }
-            // TODO! Возможно сложение заходит на память вне outBytes.
+            // Возможно сложение заходит на память вне outBytes.
             // Хотя там могут прибавляться только нули, так что ничего плохого случиться не должно.
             *(uint32_t*)(&outBytes[byteCur]) += bits << (bitCur - byteCur * 8);
             bitCur += baseShift;
@@ -264,12 +259,6 @@ int ParseArgs(int argc, char** argv){
                 printExitInfo = true;
                 continue;
             }
-            #if DEBUG
-                if (strcmp(arg, "debug") == 0){
-                    debugMode = true;
-                    continue;
-                }
-            #endif
             LOG("Unknown arg \"" << argv[i] << "\"")
             return 1;
         }
@@ -286,7 +275,7 @@ int ParseArgs(int argc, char** argv){
         }
 
         if (!fs::exists(argv[i])){
-            LOG("There is no \"" << argv[i] << "\" file or path");
+            LOG("There is no \"" << argv[i] << "\" file or dir");
             return 1;
         }
         if (nextIsOFile){
@@ -296,6 +285,9 @@ int ParseArgs(int argc, char** argv){
                 return 1;
             }
             outDir = argv[i];
+            if (outDir[outDir.size() - 1] != DIRDELIM){
+                outDir += DIRDELIM;
+            }
         }
         else{
             if (!fs::is_regular_file(argv[i])){
@@ -314,21 +306,31 @@ int ParseArgs(int argc, char** argv){
 }
 
 
+void GetOutPath(const fs::path& asmPath, fs::path& outBytecodePath){
+    if (ArgVars::outDir.empty()){
+        outBytecodePath = asmPath;
+    }
+    else {
+        outBytecodePath = ArgVars::outDir;
+        outBytecodePath += asmPath.stem();
+    }
+    outBytecodePath.replace_extension("shbyte");
+}
 
 int VMachineMode(){
+    fs::path bcPath;
     if (mode == Modes::BOTH){
-        auto dot = ArgVars::inpFiles[0].find_last_of('.');
-        if (dot != -1){
-            ArgVars::inpFiles[0].resize(dot);
-        }
-        ArgVars::inpFiles[0] += ".shbyte";
+        GetOutPath(ArgVars::inpFiles[0], bcPath);
+    }
+    else {
+        bcPath = ArgVars::inpFiles[0];
     }
 
     // Читаем программу.
-    std::ifstream asmFile(ArgVars::inpFiles[0]);
+    std::ifstream bcFile(bcPath);
     
-    while (!asmFile.eof()){
-        asmFile.read((char*)memory + REG_sptr, 1);
+    while (!bcFile.eof()){
+        bcFile.read((char*)memory + REG_sptr, 1);
         REG_sptr++;
     }
 
@@ -489,7 +491,6 @@ vMachineModeEnding:
 }
 
 
-// TODO Вынести в файл (+ методы в конце vmachine.cpp).
 struct AsmParseContext {
     // bytecode file.
     std::fstream bcFile;
@@ -505,20 +506,20 @@ struct AsmParseContext {
 
 // 0 - успешный парсинг.
 // 1 - отмена парсинга, файл встречен не впервый раз (#once).
-int ParseAsm(const std::string_view& asmFileName, AsmParseContext& ctx, unsigned int depth = 1){
+int ParseAsm(const fs::path& asmPath, AsmParseContext& ctx, const unsigned int depth = 1){
     {
-        auto result = std::find(ctx.dontInclude.begin(), ctx.dontInclude.end(), asmFileName);
+        auto result = std::find(ctx.dontInclude.begin(), ctx.dontInclude.end(), asmPath);
         if (result != ctx.dontInclude.end()){
             return 1;
         }
     }
-    // TODO медленно из-за постоянного переключения цвета ? 
+    // Медленно из-за постоянного переключения цвета ? 
     LOG_STR(" ");
     for (int i = 0; i < depth; i++){
         LOG_STR(">");
     }
-    LOG(" " << TERMCOLOR::FG_CYAN << "Processing " << TERMCOLOR::LOG_DEFAULT << asmFileName);
-    std::ifstream asmFile(asmFileName);
+    LOG(" " << TERMCOLOR::FG_CYAN << "Processing " << TERMCOLOR::LOG_DEFAULT << asmPath);
+    std::ifstream asmFile(asmPath);
     // Читаем пробелы.
     asmFile.unsetf(ios::skipws);
     std::string token;
@@ -658,7 +659,7 @@ fullToken:
             }
 
             if(ParseAsm(fileName, ctx, depth + 1) == 0){
-                // TODO? медленно из-за постоянного переключения цвета? 
+                // Медленно из-за постоянного переключения цвета? 
                 LOG_STR(" ");
                 for (int i = -1; i < (int)depth; i++){
                     LOG_STR(">");
@@ -667,7 +668,7 @@ fullToken:
             }
         }
         else if (strcmp(str, "once") == 0){
-            ctx.dontInclude.push_back((std::string)asmFileName);
+            ctx.dontInclude.push_back((std::string)asmPath);
         }
         line++;
         token.clear();
@@ -715,11 +716,6 @@ fullToken:
         ctx.bcFile << (char)((*commandInfo)[0]);
         stepsToNext = commandInfo->size() - 1;
         token.clear();
-        #if DEBUG
-            if (ArgVars::debugMode){
-                ctx.bcFile << ':';
-            }
-        #endif
         ctx.byte++;
     }
     else {
@@ -802,11 +798,6 @@ fullToken:
         // ~ins
         
         int argByteLen = (*commandInfo)[commandInfo->size() - stepsToNext];
-        // TODO!!!! Убрать, когда закончу реализацию.
-        if (argByteLen > 4){
-            // TODO ?
-            ERROR("values >4 Bytes are not suported yet. Line " << line << '.');
-        }
         // jmp
         if (!jmpMark.empty()){
             if (argByteLen != 4){
@@ -855,16 +846,6 @@ fullToken:
 
         stepsToNext--;
         token.clear();
-        // TODO? Удалить?
-        #if DEBUG
-            if (ArgVars::debugMode){
-                if (stepsToNext == 0){
-                    ctx.bcFile << '_';
-                }else{
-                    ctx.bcFile << '.';
-                }
-            }
-        #endif
         ctx.byte += argByteLen;
     }
 
@@ -883,20 +864,13 @@ tokenProcEnd:
     return 0;
 }
 
-
 int AsmParserMode(){
-    for(std::string& asmFileName : ArgVars::inpFiles){
+    for(fs::path& asmFileName : ArgVars::inpFiles){
         AsmParseContext ctx{};
-        std::string bcFileName = asmFileName;
-        {
-            auto dot = bcFileName.find_last_of('.');
-            if (dot != -1){
-                bcFileName.resize(dot);
-            }
-            bcFileName += ".shbyte";
-        }
+        fs::path bcFilePath;
+        GetOutPath(asmFileName, bcFilePath);
         
-        ctx.bcFile.open(bcFileName, ios::binary | ios::in | ios::out | ios::trunc);
+        ctx.bcFile.open(bcFilePath, ios::binary | ios::in | ios::out | ios::trunc);
         ctx.byte = 0;
 
         ParseAsm(asmFileName, ctx);

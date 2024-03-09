@@ -189,7 +189,8 @@ project "VMachine"
     
     filter "platforms:Win64"
         defines { "_WIN64", "_WIN" }
+        buildoptions { "-DDIRDELIM=\\".."'\\\\\\".."'" }
         
     filter "platforms:Linux"
         defines { "_LINUX" }
-    
+        buildoptions { "-DDIRDELIM=\\".."'/\\".."'" }
