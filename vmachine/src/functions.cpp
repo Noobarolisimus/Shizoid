@@ -188,7 +188,7 @@ void ParseValue(const std::string_view val, std::vector<uint8_t>& outBytes, bool
         }
 
         if (val[0] == '"' && val[val.size() - 1] == '"'){
-            // TODO? Возможно стоит находить все экранированые символы и учитывать это.
+            // Возможно стоит находить все экранированые символы и учитывать это?
             outBytes.reserve(outBytes.size() + val.size());
             for (int i = 1; i < val.size() - 1; i++){
                 if (val[i] == '\\'){

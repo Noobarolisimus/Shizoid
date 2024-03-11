@@ -183,7 +183,7 @@ vMachineModeEnding:
 
 // 0 - успешный парсинг.
 // 1 - отмена парсинга, файл встречен не впервый раз (#once).
-int ParseAsm(const fs::path& asmPath, AsmParseContext& ctx, const unsigned int depth = 1){
+int ParseAsm(const fs::path& asmPath, AsmParseContext& ctx, const uint depth = 1){
     {
         auto result = std::find(ctx.dontInclude.begin(), ctx.dontInclude.end(), asmPath);
         if (result != ctx.dontInclude.end()){
@@ -201,7 +201,7 @@ int ParseAsm(const fs::path& asmPath, AsmParseContext& ctx, const unsigned int d
     asmFile.unsetf(ios::skipws);
     std::string token;
     std::string lastInstruction;
-    std::vector<uint8_t>* commandInfo;
+    const std::vector<uint8_t>* commandInfo;
     std::string_view jmpMark;
     // шагов до следующей команды.
     int stepsToNext = 0;
@@ -315,8 +315,8 @@ fullToken:
             
             std::string fileName;
             // TODO Cократить путь.
-            // TODO Сделать поиск по директориям и т.п. (=сделать умным).
-            // TODO (sub) Искать от inp файла
+            // Сделать поиск по директориям и т.п. (=сделать умным).
+            // (sub) Искать от inp файла
             char let;
             while (true){
                 asmFile >> let;
@@ -553,22 +553,17 @@ int AsmParserMode(){
         ParseAsm(asmFileName, ctx);
         // jpm
         for (auto& [jmpName, placesToInsert] : ctx.jmpList){
-            if (placesToInsert[0] == -1){
-                ERROR("Unknown jmpMark \"" << TERMCOLOR::FG_LBLUE << jmpName << TERMCOLOR::LOG_DEFAULT << "\".")
-            }
-            union{
-                int32_t origin;
-                uint8_t parts[4];
-            };
+            int32_t origin = placesToInsert[0];
             if (origin == -1){
                 ERROR(TERMCOLOR::FG_LBLUE << ':' << jmpName << ':' << TERMCOLOR::LOG_DEFAULT << " is not defined.")
             }
             for (int j = 1; j < placesToInsert.size(); j++){
+                int32_t offset;
                 ctx.bcFile.seekp(placesToInsert[j], ios::beg);
-                ctx.bcFile >> parts[0] >> parts[1] >> parts[2] >> parts[3];
-                origin += placesToInsert[0];
+                ctx.bcFile.read((char*)&offset, 4);
+                offset += placesToInsert[0];
                 ctx.bcFile.seekp(-4, ios::cur);
-                ctx.bcFile << parts[0] << parts[1] << parts[2] << parts[3];
+                ctx.bcFile.write((char*)&offset, 4);
             }
         }
 

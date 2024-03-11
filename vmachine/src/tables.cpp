@@ -4,7 +4,7 @@
 char const HELPTEXT[] = "  VMachine.exe [--bytecode|--asm|--both] [--exitinfo] <files>... [-o <dir>]\n\n  --help\n  input file type:\n    --bytecode (default)\n      (.shbyte).\n      Virtual machine runs a program.\n      Only one file.\n      --exitinfo\n        Prints info about executing time and exit code after program finish.\n    --asm\n      (.shasm).\n      Creates bytecode files from shizoid assembler.\n      Any amount of files.\n      -o <dir>\n        Directory where .shbyte output files will be placed.\n        <dir> - current directory by default.\n    --both\n      Firstly runs --asm mode, than runs --bytecode with first input file.\n";
 
 // { name, { bytecode, len A, len B, len ...} }
-std::map<std::string, std::vector<uint8_t>> asmTable{
+const std::map<std::string, std::vector<uint8_t>> asmTable{
     { "quit", { 0, 4 } },
     { "set", { 1, 4, 4 } },
     { "jmp", { 2, 4 } },
@@ -38,9 +38,10 @@ std::map<std::string, std::vector<uint8_t>> asmTable{
     { "bnot", { 79, 4 } },
     { "bshl", { 80, 4, 4 } },
     { "bshr", { 81, 4, 4 } },
+    { "vmcall", { 82, 4 } },
 };
 
-std::map<std::string, uint8_t> regTable{
+const std::map<std::string, uint8_t> regTable{
     { "null", 0},
     { "inn", 8},
     { "sptr", 12},

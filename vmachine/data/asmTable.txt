@@ -39,3 +39,4 @@ bor 4 4
 bnot 4
 bshl 4 4
 bshr 4 4
+vmcall 4

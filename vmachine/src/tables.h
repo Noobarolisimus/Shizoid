@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-extern std::map<std::string, std::vector<uint8_t>> asmTable;
-extern std::map<std::string, uint8_t> regTable;
+extern const std::map<std::string, std::vector<uint8_t>> asmTable;
+extern const std::map<std::string, uint8_t> regTable;
 extern char const HELPTEXT[];
 
 // Сколько занимает регион с регистрами в Байтах

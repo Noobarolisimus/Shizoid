@@ -12,11 +12,10 @@ using ios = std::ios;
 namespace ArgVars {
     extern std::vector<fs::path> inpFiles;
     extern std::string outDir;
-    extern bool printExitInfo;
     extern Modes mode;
+    extern bool printExitInfo;
 }
 
 namespace Memory {
-    // TODO Посмотреть лимиты. Сейчас цифра взята с потолка.
     extern uint8_t memory[];
 }

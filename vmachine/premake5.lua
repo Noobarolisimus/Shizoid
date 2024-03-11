@@ -102,7 +102,7 @@ project "VMachine"
         tablescpp:write("\";\n") 
         -- ~help
 
-        tablescpp:write("\n// { name, { bytecode, len A, len B, len ...} }\nstd::map<std::string, std::vector<uint8_t>> asmTable{\n");
+        tablescpp:write("\n// { name, { bytecode, len A, len B, len ...} }\nconst std::map<std::string, std::vector<uint8_t>> asmTable{\n");
 
         for line in asmt:lines() do
             line = removeComment(line);
@@ -127,7 +127,7 @@ project "VMachine"
             ::tablescpp_continue1::
         end
 
-        tablescpp:write("};\n\nstd::map<std::string, uint8_t> regTable{\n");
+        tablescpp:write("};\n\nconst std::map<std::string, uint8_t> regTable{\n");
 
         local memBegin = 0;
         for line in regt:lines() do
@@ -151,7 +151,7 @@ project "VMachine"
 
 
         -- tables.h
-        tablesh:write("// lua generated\n#pragma once\n#include <map>\n#include <string>\n#include <vector>\n\nextern std::map<std::string, std::vector<uint8_t>> asmTable;\nextern std::map<std::string, uint8_t> regTable;\nextern char const HELPTEXT[];\n\n// Сколько занимает регион с регистрами в Байтах\nconstexpr int REGMEMAMOUNT = "..tostring(memBegin)..";\n");
+        tablesh:write("// lua generated\n#pragma once\n#include <map>\n#include <string>\n#include <vector>\n\nextern const std::map<std::string, std::vector<uint8_t>> asmTable;\nextern const std::map<std::string, uint8_t> regTable;\nextern char const HELPTEXT[];\n\n// Сколько занимает регион с регистрами в Байтах\nconstexpr int REGMEMAMOUNT = "..tostring(memBegin)..";\n");
         regt:seek("set", 0);
         memBegin = 0
         for line in regt:lines() do

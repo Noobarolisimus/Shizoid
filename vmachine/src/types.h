@@ -1,8 +1,13 @@
 #pragma once
+#include <cstdint>
 #include <fstream>
 #include <vector>
 #include <map>
+#include <stdint.h>
 
+
+using uchar = unsigned char;
+using uint = unsigned int;
 
 enum Modes {
     ASM = 0b1,

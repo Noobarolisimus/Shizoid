@@ -23,9 +23,6 @@ void GetOutPath(const fs::path& asmPath, fs::path& outBytecodePath);
 
 uint8_t ParseEscChar(uint8_t character);
 
-// TODO
-int32_t BytesToInt(const std::vector<uint8_t> bytes);
-
 // Выбрасывает 0xff, если digit неправильный
 inline unsigned int HexToInt(uint8_t digit){
     if (std::isdigit((uint8_t)digit)){
