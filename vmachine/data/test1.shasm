@@ -1,14 +1,17 @@
 jmp :main:
 #include examples/io.shasm
-; #include data/testLib1.shasm
+#include data/testLib1.shasm
 
 :main:
 
+fncr :printSptr@:
 ; 349167
 set ia 0x553ef
 push ia
 fncr :printn@:
+putc "\n"
 pop null
+fncr :printSptr@:
 
 quit 0
 
