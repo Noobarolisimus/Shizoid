@@ -162,7 +162,7 @@ project "VMachine"
             local space = string.find(line, " ");
             local memLen = tonumber(string.sub(line, space));
             line = string.sub(line, 1, space - 1);
-            tablesh:write(string.format("#define REG_%s (*(int%i_t*)(memory + %i))\n", line, memLen * 8, memBegin));
+            tablesh:write(string.format("#define REG_%s (*(int%i_t*)(memory.Base() + %i))\n", line, memLen * 8, memBegin));
             memBegin = memBegin + memLen;
             ::tablesh_continue1::
         end    

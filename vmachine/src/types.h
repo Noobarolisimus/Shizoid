@@ -3,7 +3,6 @@
 #include <fstream>
 #include <vector>
 #include <map>
-#include <stdint.h>
 
 
 using uchar = unsigned char;

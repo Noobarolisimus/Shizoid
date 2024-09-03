@@ -1,6 +1,7 @@
 #include <iostream>
 #include <filesystem>
 #include "config.h"
+#include "memory.h"
 #include "macro_fns.h"
 #include "modes.h"
 #include "functions.h"
@@ -21,7 +22,7 @@ int VMachineMode(){
     std::ifstream bcFile(bcPath);
     
     while (!bcFile.eof()){
-        bcFile.read((char*)memory + REG_sptr, 1);
+        bcFile.read((char*)&memory.LazyGet(REG_sptr), 1);
         REG_sptr++;
     }
 

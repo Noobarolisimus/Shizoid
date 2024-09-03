@@ -1,11 +1,12 @@
 #pragma once
 #include <vector>
 #include "config.h"
+#include "memory.h"
 #include "tables.h"
 
 
-#define inn_next(bytes) (*(int32_t*)(memory + REG_inn + bytes))
-#define memoryi(bytes) (*(int32_t*)(memory + bytes))
+#define inn_next(bytes) (memory[REG_inn + bytes])
+#define memoryi(bytes) (memory[bytes])
 
 // inline int32_t& inn_next(int bytes){
 //     return *(int32_t*)(memory + REG_inn + bytes);

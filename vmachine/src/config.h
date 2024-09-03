@@ -15,7 +15,3 @@ namespace ArgVars {
     extern Modes mode;
     extern bool printExitInfo;
 }
-
-namespace Memory {
-    extern uint8_t memory[];
-}

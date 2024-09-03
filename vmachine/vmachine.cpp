@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include "src/config.h"
+#include "memory.h"
 #include "src/functions.h"
 #include "src/types.h"
 #include "src/tables.h"
@@ -20,10 +21,6 @@ namespace ArgVars {
     Modes mode;
 }
 
-namespace Memory {
-    // TODO Посмотреть лимиты. Сейчас цифра взята с потолка.
-    uint8_t memory[(int)4e6];
-}
 
 void Init();
 
@@ -36,8 +33,8 @@ int main(int argc, char** argv){
         return 0;
     }
 
-    std::fill(memory, memory + REGMEMAMOUNT, 0);
-    REG_inn = REGMEMAMOUNT;
+    std::fill(memory.Base(), memory.Base() + REGMEMAMOUNT, 0);
+    REG_inn = 0;
     REG_sptr = REGMEMAMOUNT;
 
     int error = 0;
@@ -47,7 +44,6 @@ int main(int argc, char** argv){
             ArgVars::outDir = fs::current_path().generic_string();
         }
         error = AsmParserMode();
-        
     }
     if (error != 0){
         AppExit(error);
