@@ -26,7 +26,7 @@ void Init();
 
 
 int main(int argc, char** argv){
-    using namespace Memory;
+    using namespace mem;
     Init();
 
     if (int error = ParseArgs(argc, argv); error){

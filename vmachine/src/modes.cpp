@@ -9,7 +9,7 @@
 
 
 int VMachineMode(){
-    using namespace Memory;
+    using namespace mem;
     fs::path bcPath;
     if (ArgVars::mode == Modes::BOTH){
         GetOutPath(ArgVars::inpFiles[0], bcPath);
@@ -83,7 +83,7 @@ int VMachineMode(){
             REG_inn += 5;
             break;
         case 11:
-            LOG_STR(memory[REG_inn + 1]);
+            LOG_STR(*(char*)&memory[REG_inn + 1]);
             REG_inn += 2;
             // TODO! Временно
             std::cout.flush();

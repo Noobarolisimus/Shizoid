@@ -2,40 +2,42 @@
 #include <cstdint>
 #include <optional>
 
-namespace Memory {
+namespace mem {
     // TODO Посмотреть лимиты. Сейчас цифра взята с потолка.
-    _Memory memory;
+    Memory memory;
     
-    // //  class Ptr .
-    // Ptr::Ptr(const uint32_t& ptr){
-    //     rawPtr = ptr;
-    // }
+    //  class Ptr .
+    Memory::Ptr::Ptr(const uint32_t& ptr){
+        innerPtr = ptr;
+    }
 
-    // Ptr& Ptr::operator+= (const Ptr& rhs){
-    //     rawPtr += rhs.rawPtr;
-    // }
+    Memory::Ptr& Memory::Ptr::operator+= (const Memory::Ptr& rhs){
+        innerPtr += rhs.innerPtr;
+        return *this;
+    }
 
-    // Ptr& Ptr::operator-= (const Ptr& rhs){
-    //     rawPtr -= rhs.rawPtr;
-    // }
+    Memory::Ptr& Memory::Ptr::operator-= (const Memory::Ptr& rhs){
+        innerPtr -= rhs.innerPtr;
+        return *this;
+    }
 
-    // Ptr operator+ (const Ptr& a, const Ptr& b){
-    //     return Ptr(a.rawPtr + b.rawPtr);
-    // }
+    Memory::Ptr operator+ (const Memory::Ptr& a, const Memory::Ptr& b){
+        return Memory::Ptr(a.innerPtr + b.innerPtr);
+    }
 
-    // Ptr operator- (const Ptr& a, const Ptr& b){
-    //     return Ptr(a.rawPtr - b.rawPtr);
-    // }
+    Memory::Ptr operator- (const Memory::Ptr& a, const Memory::Ptr& b){
+        return Memory::Ptr(a.innerPtr - b.innerPtr);
+    }
 
-    // //  class Ptr .
+    // ~class Ptr .
     
-    // ~class _Memory .
-    _Memory::_Memory() {
+    // class _Memory .
+    Memory::Memory() {
         CreatePage();
     }
     
-    std::optional<Ptr> _Memory::CreatePage() {
-        pages[sp] = malloc(SPACE_SIZE);
+    std::optional<Memory::Ptr> Memory::CreatePage() {
+        pages[sp] = malloc(SPACE_SIZE); // TODO? calloc()?
         if (pages[sp] == 0){
             return std::nullopt;
         }
@@ -45,7 +47,7 @@ namespace Memory {
         return sp++ << PAGE_BIT_OFFSET;
     }
     
-    void _Memory::DeletePage() {
+    void Memory::DeletePage() {
         sp--;
         free(pages[sp]);
         if (sp == 0){
@@ -53,21 +55,29 @@ namespace Memory {
         }
     }
     
-    // Начало памяти.
-    uint8_t* _Memory::Base() {
-        return (uint8_t*)base;
+    int32_t* Memory::Base() {
+        return (int32_t*)base;
     }
     
-    int32_t& _Memory::operator[] (const Ptr& ptr) {
-        return *(int32_t*)((uint8_t*)pages[ptr >> PAGE_BIT_OFFSET] + (ptr & SPACE_MASK));
+    int32_t& Memory::operator[] (const Ptr& ptr) {
+        return *(int32_t*)((uint8_t*)pages[ptr.innerPtr >> PAGE_BIT_OFFSET] + (ptr.innerPtr & SPACE_MASK));
     }
     
-    int32_t& _Memory::LazyGet (const Ptr& ptr) {
-        while ((ptr >> PAGE_BIT_OFFSET) >= sp) {
+    int32_t& Memory::LazyGet (const Ptr& ptr) {
+        while ((ptr.innerPtr >> PAGE_BIT_OFFSET) >= sp) {
             CreatePage();
         }
-        return *(int32_t*)((uint8_t*)pages[ptr >> PAGE_BIT_OFFSET] + (ptr & SPACE_MASK));
+        return *(int32_t*)((uint8_t*)pages[ptr.innerPtr >> PAGE_BIT_OFFSET] + (ptr.innerPtr & SPACE_MASK));
     }
+
+    int32_t* Memory::ToCPtr(const Ptr& ptr){
+        return &(*this)[ptr.innerPtr];
+    }
+
+    int32_t& Memory::ToValue(const Ptr& ptr){
+        return (*this)[ptr.innerPtr];
+    }
+
     // ~class _Memory .
 } // namespace Memory.
 

@@ -5,7 +5,7 @@
 #include "tables.h"
 
 
-#define inn_next(bytes) (memory[REG_inn + bytes])
+#define inn_next(bytes) (*(uint8_t*)mem::memory.ToCPtr(mem::Memory::Ptr(REG_inn) + bytes))
 #define memoryi(bytes) (memory[bytes])
 
 // inline int32_t& inn_next(int bytes){
