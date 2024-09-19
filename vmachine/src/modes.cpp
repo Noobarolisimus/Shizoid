@@ -79,7 +79,7 @@ int VMachineMode(){
         case 9:
             REG_inn++;
         case 10:
-            std::cin >> memory[memoryi(REG_inn + 1)];
+            std::cin >> *(uint8_t*)memory.ToCPtr(memoryi(REG_inn + 1));
             REG_inn += 5;
             break;
         case 11:
@@ -89,7 +89,7 @@ int VMachineMode(){
             std::cout.flush();
             break;
         case 12:
-            LOG_STR(memory[memoryi(REG_inn + 1)]);
+            LOG_STR(*(char*)&memory[memoryi(REG_inn + 1)]);
             REG_inn += 5;
             break;
         case 13:
